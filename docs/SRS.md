@@ -4,7 +4,7 @@
 **Product:** RouteX  
 **Team:** NextGen  
 **Tagline:** Know the Road Ahead.  
-**Initial pilot area:** Lagos, Nigeria  
+**Initial service area:** Configurable supported regions
 **Version:** 1.0  
 **Last updated:** 17 October 2026
 
@@ -22,7 +22,7 @@ The objective is to prevent important functionality from being forgotten while k
 
 RouteX is a responsive, community-powered road-hazard reporting and awareness web application. It allows people to browse available hazard reports on a map, submit reports with a location and optional photograph, review report details, and contribute confirmations or flags. Authorised moderators can review potentially inaccurate, duplicate, abusive, or stale content.
 
-The initial pilot focuses on Lagos, Nigeria. The application must be designed so that additional cities can be supported later without changing the fundamental report model.
+The initial service area is configurable. The application must support additional cities and regions without changing the fundamental report model.
 
 RouteX provides information to help people make better-informed decisions. It does not guarantee that a road is safe, does not replace official traffic or emergency information, and does not independently certify that a community report is true.
 
@@ -40,7 +40,7 @@ RouteX provides information to help people make better-informed decisions. It do
 The MVP is considered functionally successful when a user can:
 
 - Open the public landing page and understand what RouteX does.
-- Browse the interactive Lagos map and see hazard reports returned by the backend.
+- Browse the interactive map and see hazard reports returned by the backend.
 - Filter reports and inspect a marker's details.
 - Register, sign in, restore a session after refreshing the browser, and sign out.
 - Create a hazard report with a manually selected location and optional photograph.
@@ -142,7 +142,7 @@ The web application must support current mainstream desktop and mobile browsers.
 ### 4.1 Included in Phase 1 MVP
 
 - Public, responsive landing page.
-- Functional interactive map centred initially on Lagos.
+- Functional interactive map centred on a configured initial view.
 - OpenStreetMap-compatible map tiles with visible attribution.
 - Hazard markers based on backend records.
 - Map viewport filtering and category/status filters.
@@ -194,7 +194,7 @@ AI must not certify that a road hazard exists, independently mark a report offic
 
 These capabilities are not promised by the MVP and require product and technical review:
 
-- More Nigerian cities and configurable regions.
+- More cities and configurable regions.
 - Address and place search using a suitable geocoding provider.
 - Routing integration to show route proximity to reported hazards; routing must not claim to guarantee safety.
 - Official-source integrations where reliable APIs and permission exist.
@@ -263,7 +263,7 @@ These capabilities are not promised by the MVP and require product and technical
 ### 5.4 Map and map navigation
 
 - **FR-MAP-001 (P0):** The map page shall be available at `/map`.
-- **FR-MAP-002 (P0):** The map shall open at a configured initial view centred on Lagos, Nigeria.
+- **FR-MAP-002 (P0):** The map shall open at a configured initial view for the active service area.
 - **FR-MAP-003 (P0):** The map shall use Leaflet/React Leaflet and a configurable compatible tile URL.
 - **FR-MAP-004 (P0):** Visible map attribution shall credit OpenStreetMap contributors and link to the appropriate attribution/copyright information.
 - **FR-MAP-005 (P0):** The map shall support pan and zoom and shall have a defined height at all target viewport sizes.
@@ -922,7 +922,7 @@ These decisions do not prevent the basic MVP from being built, but must be resol
 9. Privacy policy, terms of use, abuse-handling contact, and incident response process.
 10. Google Gemini model, quota/cost controls, provider data handling, and feature-specific human review policy.
 11. Mobile authentication, notification consent, data retention, offline draft behaviour, and release/distribution strategy.
-12. The criteria for expanding from Lagos to additional regions.
+12. The criteria for expanding to additional regions.
 
 ## 17. Definition of MVP complete
 

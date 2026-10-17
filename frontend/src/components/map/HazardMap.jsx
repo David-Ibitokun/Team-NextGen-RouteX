@@ -5,8 +5,8 @@ import { useTheme } from "../../context/ThemeContext";
 
 import { Layers, Map as MapIcon } from "lucide-react";
 
-// Lagos, Nigeria coordinates
-const LAGOS_CENTER = [6.5244, 3.3792];
+// Default map view; report data determines the useful area to explore.
+const DEFAULT_MAP_CENTER = [6.5244, 3.3792];
 const DEFAULT_ZOOM = 12;
 
 export const MAP_LAYERS = {
@@ -93,7 +93,7 @@ export function HazardMap({
   return (
     <div className={`relative ${className}`}>
       <MapContainer
-        center={LAGOS_CENTER}
+        center={DEFAULT_MAP_CENTER}
         zoom={DEFAULT_ZOOM}
         scrollWheelZoom={true}
         className="w-full h-full"

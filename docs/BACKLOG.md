@@ -5,7 +5,7 @@
 ## Now
 - [x] **N1 — Inspect the existing repository.** Preserved working code and identified what exists before editing.
 - [x] **N2 — Establish the foundation.** React + Vite + Tailwind frontend, Django REST Framework backend, PostgreSQL configuration with local fallback, environment examples (`.env.example`), active local `.env`, `.gitignore`, and root setup documentation.
-- [x] **N3 — Build the first vertical slice.** Fetch hazard reports from the API, display them on Leaflet map with Lagos center and OpenStreetMap attribution, filter by category/status, and open report details view.
+- [x] **N3 — Build the first vertical slice.** Fetch hazard reports from the API, display them on a Leaflet map with a configured initial center and OpenStreetMap attribution, filter by category/status, and open report details view.
 - [x] **N4 — Implement hazard submission.** Category, description, selected coordinates (interactive map picker / geolocation fallback), optional photo, server-side validation, and complete loading/error/success states.
 - [x] **N5 — Add baseline tests and security checks.** Validated coordinates (-90..90, -180..180), text limits, and upload constraints; tested API permissions, filters, confirm, flag, and core report endpoints (16 tests passing in 0.5s).
 - [x] **N6 — Build Premium RouteX Landing Page.** Delivered production-quality public homepage at `/` with responsive header, live map preview hero, trust strip, 3-step workflow, feature showcase, interactive category cards, safety & trust guidelines, lower CTA, and 7-item FAQ accordion.
@@ -15,7 +15,7 @@
 - [x] **N10 — Enforce Confirmation Threshold & Duplicate Safeguards.** Unique constraints and backend checks prevent repeated confirmations/flags; auto-transitions reports to `community_confirmed` upon reaching 3 distinct confirmations.
 
 ## Next
-- [ ] Add marker clustering on `/map` for very dense hazard clusters across Lagos metropolitan areas.
+- [ ] Add marker clustering on `/map` for very dense hazard clusters across supported regions.
 - [ ] Add photo full-screen lightbox modal for high-resolution photographic evidence inspection.
 - [ ] Add PWA (Progressive Web App) manifest and service worker for offline shell caching.
 - [ ] Implement email verification workflow for accounts upon public launch.
@@ -39,7 +39,7 @@
 
 ## Later — scale and expansion
 - [ ] Evaluate deployment, monitoring, backups, media storage, and abuse-report workflows before a public launch.
-- [ ] Expand to additional Nigerian cities after the Lagos pilot has reliable data and moderation.
+- [ ] Expand to additional regions after the initial service has reliable data and moderation.
 
 ## Done
 - [x] Team name selected: NextGen.
@@ -52,10 +52,10 @@
 - [x] Backend established: Django 5.1 + DRF with `accounts`, `hazards`, `moderation`, and `common` apps.
 - [x] Backend database migrations executed and verified.
 - [x] 16 unit and API tests written and passed (100% pass rate in 0.5s).
-- [x] Realistic Lagos demo hazards seeding command created (`seed_demo_hazards`).
+- [x] Realistic demo hazards seeding command created (`seed_demo_hazards`).
 - [x] Frontend established: React 18 + Vite 6 + Tailwind CSS v4 (`@tailwindcss/vite`) + React Leaflet.
 - [x] Production Landing Page at `/` with all 11 required sections, responsive mobile drawer, GPU-accelerated scroll reveal animations (`RevealOnScroll`), and dynamic live map preview.
-- [x] Generalize project scope beyond Lagos to universal community road awareness across both frontend and backend.
+- [x] Generalize project scope to universal community road awareness across both frontend and backend.
 - [x] Pure Lucide React iconography utilized across all components.
 - [x] Four account types with server-enforced RBAC permissions: Anonymous Visitor, Registered Citizen, Moderator, and Platform Administrator.
 - [x] Three dedicated custom frontend dashboards: Citizen Commuter Dashboard (`/dashboard`), Moderator Queue (`/moderator`), and Platform Administrator Portal (`/admin-dashboard`). Zero reliance on Django built-in admin.

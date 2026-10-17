@@ -10,7 +10,7 @@ RouteX sounds calm, direct, practical, community-minded, and honest about uncert
 4. Distinguish reported, community-confirmed, under review, resolved, and demo data.
 5. Communicate risk clearly without sensationalism.
 6. Explain why location or photo access is requested and offer alternatives where practical.
-7. Prefer Nigerian/British English spelling where applicable, such as “centre” and “localisation”.
+7. Prefer consistent British English spelling where applicable, such as “centre” and “localisation”.
 8. Use sentence case for headings, buttons, tabs, and labels.
 9. Use action labels that explain the outcome: “Submit report”, “Confirm hazard”, “Flag report”.
 10. Describe AI as assistance, not proof.

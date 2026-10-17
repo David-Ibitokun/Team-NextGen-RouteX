@@ -18,7 +18,7 @@ If any file is missing, note that fact and create it from the documented project
 - Team: **NextGen**
 - App: **RouteX**
 - Tagline: **Know the Road Ahead.**
-- Initial pilot: Lagos, Nigeria
+- Initial service area: configurable supported regions
 - Product: community-powered road hazard reporting and awareness
 - Initial delivery: a responsive web app, not a React Native app
 

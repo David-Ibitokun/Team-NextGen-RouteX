@@ -1,6 +1,6 @@
 """
 Django settings for RouteX project.
-Team: NextGen | Product: RouteX | Pilot: Lagos, Nigeria
+Team: NextGen | Product: RouteX
 """
 
 import os
@@ -41,8 +41,11 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
 allowed_hosts_raw = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]")
 ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_raw.split(",") if host.strip()]
-if DEBUG and "testserver" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append("testserver")
+if DEBUG:
+    # Allow local network devices and test server during development
+    for dev_host in ["testserver", "*"]:
+        if dev_host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(dev_host)
 
 # Application definition
 INSTALLED_APPS = [
@@ -141,7 +144,7 @@ if "test" in sys.argv:
 
 # Internationalization
 LANGUAGE_CODE = "en-gb"
-TIME_ZONE = "Africa/Lagos"
+TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
@@ -206,6 +209,35 @@ CORS_ALLOW_CREDENTIALS = True
 
 csrf_raw = os.environ.get("CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000")
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_raw.split(",") if origin.strip()]
+
+# In development (DEBUG=True), allow LAN/local Wi-Fi origins (e.g. 192.168.x.x, 10.x.x.x, 172.x.x.x) for phone/tablet testing
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+    # Auto-trust local network IPs for CSRF checking
+    for proto in ("http://", "https://"):
+        for port in (":5173", ":8000", ":3000", ""):
+            # Common private LAN subnets
+            for prefix in ("192.168.", "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31."):
+                # Add wildcard pattern supported in Django 4+
+                CSRF_TRUSTED_ORIGINS.append(f"{proto}*.{prefix.rstrip('.')}*")
+    
+    # Also explicitly add standard local patterns
+    CSRF_TRUSTED_ORIGINS.extend([
+        "http://*.192.168.*",
+        "http://192.168.*",
+        "http://*.local",
+        "http://*.local:5173",
+        "http://*.local:8000",
+    ])
+    # Extract any specific device IP if defined in environment or add regex/common LAN origins
+    lan_ip = os.environ.get("LAN_IP", "").strip()
+    if lan_ip:
+        CSRF_TRUSTED_ORIGINS.extend([
+            f"http://{lan_ip}:5173",
+            f"http://{lan_ip}:8000",
+        ])
+    # Ensure all entries are unique
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
 # Google Gemini AI Feature Flag (Backend service, optional future phase)
 GEMINI_AI_ENABLED = os.environ.get("GEMINI_AI_ENABLED", "False").lower() in ("true", "1", "yes")

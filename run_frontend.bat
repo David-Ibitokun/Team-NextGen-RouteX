@@ -4,7 +4,7 @@ color 0A
 
 echo ==============================================================================
 echo   RouteX Frontend Application
-echo   Team: NextGen ^| Product: RouteX ^| Pilot: Lagos, Nigeria
+echo   Team: NextGen ^| Product: RouteX
 echo   Tagline: Know the Road Ahead.
 echo ==============================================================================
 echo.
@@ -24,10 +24,10 @@ if not exist "node_modules\" (
 echo.
 echo ==============================================================================
 echo   Starting Vite development server...
-echo   RouteX Web App will be available at: http://localhost:5173/
+echo   RouteX Web App will be available at: http://192.168.0.178:5173/
 echo ==============================================================================
 echo.
 
-call npm run dev
+call npm run dev -- --host 0.0.0.0 --port 5173
 
 pause

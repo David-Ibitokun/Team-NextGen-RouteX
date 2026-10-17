@@ -4,7 +4,7 @@ import L from "leaflet";
 import { Navigation, MapPin } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 
-const LAGOS_CENTER = [6.5244, 3.3792];
+const DEFAULT_MAP_CENTER = [6.5244, 3.3792];
 
 const pickerIcon = L.divIcon({
   html: `
@@ -76,7 +76,7 @@ export function LocationPickerMap({
   const hasPosition = latitude && longitude;
   const currentPosition = hasPosition
     ? [Number(latitude), Number(longitude)]
-    : LAGOS_CENTER;
+    : DEFAULT_MAP_CENTER;
 
   const tileUrl = "https://tile.openstreetmap.de/{z}/{x}/{y}.png";
   const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';

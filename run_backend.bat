@@ -40,14 +40,14 @@ python seed_db.py
 echo.
 echo ==============================================================================
 echo   RouteX Backend is ready!
-echo   - API Root:       http://127.0.0.1:8000/api/v1/
-echo   - Swagger UI:     http://127.0.0.1:8000/api/docs/
-echo   - ReDoc:          http://127.0.0.1:8000/api/redoc/
-echo   - Health Check:   http://127.0.0.1:8000/api/v1/health/
-echo   - Django Admin:   http://127.0.0.1:8000/admin/
+echo   - API Root:       http://192.168.0.178:8000/api/v1/
+echo   - Swagger UI:     http://192.168.0.178:8000/api/docs/
+echo   - ReDoc:          http://192.168.0.178:8000/api/redoc/
+echo   - Health Check:   http://192.168.0.178:8000/api/v1/health/
+echo   - Django Admin:   http://192.168.0.178:8000/admin/
 echo ==============================================================================
 echo.
 echo Starting Django development server on port 8000...
-python backend\manage.py runserver 127.0.0.1:8000
+python backend\manage.py runserver 0.0.0.0:8000
 
 pause

@@ -3,7 +3,7 @@
 **Team:** NextGen  
 **Product:** RouteX  
 **Tagline:** Know the Road Ahead.  
-**Initial pilot:** Lagos, Nigeria
+**Initial service area:** Configurable supported regions
 
 ## What we are building
 RouteX is a community-powered road-hazard reporting platform. Road users can view community reports on a map, submit a hazard with its location and an optional photo, and help keep reports current. Moderators can review reports, duplicates, and abuse.
@@ -34,7 +34,7 @@ RouteX is a community-powered road-hazard reporting platform. Road users can vie
 ## Future phases
 - **Google Gemini AI:** backend-only assistance for suggested hazard category, concise neutral summaries, and possible duplicate hints. The service must be optional; humans and documented rules remain responsible for review and status changes.
 - **React Native mobile app:** consider React Native with Expo after the web MVP is stable. Reuse the same Django API for accounts, reports, confirmations, and moderation-related user flows. Add camera, location permissions, and push notifications only when there is a clear need.
-- Expand beyond Lagos after the initial service is reliable.
+- Expand to additional regions after the initial service is reliable.
 
 ## Deliberate non-goals
 - No turn-by-turn navigation, routing engine, or live traffic prediction in the MVP.

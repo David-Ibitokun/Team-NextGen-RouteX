@@ -63,7 +63,7 @@ export function HazardFilters({
 
         <div className="flex items-center gap-1 text-[11px] text-[#667784] dark:text-slate-400">
           <Layers className="w-3.5 h-3.5" />
-          <span>Lagos Pilot</span>
+          <span>Community reports</span>
         </div>
       </div>
     </div>

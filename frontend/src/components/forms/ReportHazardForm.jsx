@@ -30,7 +30,7 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
   const [category, setCategory] = useState("flooding");
   const [locationLabel, setLocationLabel] = useState("");
   const [description, setDescription] = useState("");
-  // Default to central Lagos coordinates (Victoria Island / Marina area)
+  // Start with a neutral location until the user selects a point.
   const [latitude, setLatitude] = useState(6.4531);
   const [longitude, setLongitude] = useState(3.3958);
 

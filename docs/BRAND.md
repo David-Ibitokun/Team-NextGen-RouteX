@@ -6,7 +6,7 @@
 - **Product tagline:** Know the Road Ahead.
 - **Team slogan:** Innovating Today. Shaping Tomorrow.
 - **Category:** Community road-safety and hazard-awareness technology
-- **Initial audience and pilot:** Road users in Lagos, Nigeria
+- **Audience:** Road users and communities in supported regions
 
 ## Purpose
 Make community-reported road hazards easier to find, understand, and keep up to date so road users can make more informed decisions.
@@ -26,7 +26,7 @@ RouteX presents useful road information with context: what was reported, where, 
 - **Community-minded:** Respect reporters and people using the information.
 - **Calm:** Communicate potential danger without panic or sensationalism.
 - **Modern:** Use accessible, clean civic-tech design.
-- **Locally aware:** Use clear Nigerian/British English and familiar local place names where relevant.
+- **Locally aware:** Use clear English and familiar local place names where relevant.
 
 ## Values and trust rules
 1. A report is community-reported unless a defined process establishes a different status.

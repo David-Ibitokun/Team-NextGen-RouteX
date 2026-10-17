@@ -84,8 +84,8 @@
 ### 2026-10-17 (Part 3) — Team Documentation, Scope Generalization, Scroll Animations & README Overhaul
 - **Work completed:**
   - **Comprehensive Page Documentation:** Authored [`DOCUMENTATION.md`](file:///c:/Users/ibito/Documents/GitHub/RouteX/DOCUMENTATION.md) (and synchronized [`docs/DOCUMENTATION.md`](file:///c:/Users/ibito/Documents/GitHub/RouteX/docs/DOCUMENTATION.md)) covering full-stack system architecture, page-by-page walkthrough for all 6 frontend routes (`/`, `/map`, `/report`, `/login` & `/register`, `/my-reports`, `/moderation`), component hierarchy, state/context architecture, API client with CSRF interceptors, complete backend data models, serializers, views, 14-endpoint API matrix, and developer onboarding instructions.
-  - **Universal Scope (Removed Lagos-Only Branding):**
-    - Removed "Lagos Pilot" badge from [`AppHeader.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/layout/AppHeader.jsx).
+  - **Universal Scope:**
+    - Removed location-specific branding from the application interface.
     - Generalized copy across [`LandingPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/LandingPage.jsx), [`MapPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/MapPage.jsx), [`HomePage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/HomePage.jsx), [`RegisterPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/RegisterPage.jsx), [`MyReportsPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/MyReportsPage.jsx), and [`ReportHazardForm.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/forms/ReportHazardForm.jsx).
     - Generalized backend OpenAPI schema description in [`settings.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/backend/config/settings.py) and health check in [`urls.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/backend/config/urls.py).
     - Updated `seed_demo_hazards.py` help text and documentation.
@@ -104,7 +104,7 @@
 - **Work completed:**
   - Implemented production-quality public Landing Page at `/` in [`LandingPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/LandingPage.jsx) featuring:
     - Responsive header with RouteX logo mark + wordmark, navigation links, explore map, auth links, theme switch, and mobile menu.
-    - Two-column hero section with eyebrow label, headline, supporting copy, primary/secondary CTAs, reassurance notice, and live Leaflet Lagos map preview with real/demo data indicators.
+    - Two-column hero section with eyebrow label, headline, supporting copy, primary/secondary CTAs, reassurance notice, and live Leaflet map preview with real/demo data indicators.
     - Three-principle trust strip (community-powered reports, timestamps, transparent report status).
     - Three-step workflow (01 Explore map, 02 Share what you see, 03 Help keep reports useful).
     - Four-part feature showcase with clean cards and preview flows.
@@ -173,7 +173,7 @@
   - Created virtualenv and installed Django 5.1, DRF, psycopg, Pillow, and cors-headers.
   - Created Django backend apps: `accounts`, `hazards`, `moderation`, `common`.
   - Applied migrations and wrote 10 tests in `test_hazards_api.py`.
-  - Created `seed_demo_hazards` command for realistic Lagos hazards.
+  - Created `seed_demo_hazards` command for realistic demo hazards.
   - Scaffolded frontend with React 18, Vite 6, Tailwind CSS v4 (`@tailwindcss/vite`), and React Leaflet.
   - Implemented map view, report list, category/status filters, report detail slide-over, report submission form with interactive location picker and photo upload.
 - **Commands & tests run:**
