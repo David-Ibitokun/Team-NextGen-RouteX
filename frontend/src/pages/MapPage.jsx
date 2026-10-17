@@ -6,7 +6,7 @@ import { HazardMap } from "../components/map/HazardMap";
 import { HazardFilters } from "../components/hazards/HazardFilters";
 import { HazardCard } from "../components/hazards/HazardCard";
 import { HazardDetailsPanel } from "../components/hazards/HazardDetailsPanel";
-import { ReportHazardForm } from "../components/forms/ReportHazardForm";
+import { ReportHazardModal } from "../components/hazards/ReportHazardModal";
 import { LoadingState } from "../components/feedback/LoadingState";
 import { EmptyState } from "../components/feedback/EmptyState";
 import { ErrorState } from "../components/feedback/ErrorState";
@@ -178,20 +178,11 @@ export function MapPage() {
       />
 
       {/* Report Modal */}
-      {showReportModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-2000 overflow-y-auto"
-        >
-          <div className="w-full max-w-lg my-8">
-            <ReportHazardForm
-              onSuccess={handleReportCreated}
-              onCancel={() => setShowReportModal(false)}
-            />
-          </div>
-        </div>
-      )}
+      <ReportHazardModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSuccess={handleReportCreated}
+      />
     </div>
   );
 }

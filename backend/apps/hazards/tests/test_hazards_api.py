@@ -137,6 +137,7 @@ class HazardReportTests(TestCase):
         response = self.client.post(url, data, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNotNone(response.data["photo"])
+        self.assertTrue(response.data["photo"].endswith(".webp"))
 
         # Invalid file format (text file pretending to be image)
         invalid_file = SimpleUploadedFile("fake.txt", b"not an image content", content_type="text/plain")

@@ -74,6 +74,7 @@ class SystemAuditLog(models.Model):
         ("ROLE_CHANGE", "User Role Change"),
         ("SETTINGS_UPDATE", "Platform Settings Update"),
         ("USER_SUSPENSION", "User Account Status Update"),
+        ("USER_DELETION", "User Account Deletion"),
         ("HAZARD_OVERRIDE", "Administrative Hazard Override"),
     ]
 

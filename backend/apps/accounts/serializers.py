@@ -250,3 +250,52 @@ class SystemAuditLogSerializer(serializers.ModelSerializer):
 
     def get_actor_username(self, obj):
         return obj.actor.username if obj.actor else "System"
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Validates password reset request containing user's email address."""
+    email = serializers.EmailField(
+        max_length=254,
+        help_text="Registered email address for the account recovery.",
+    )
+
+
+class PasswordResetValidateSerializer(serializers.Serializer):
+    """Validates the reset token and user id from the reset link."""
+    uid = serializers.CharField(
+        help_text="Base64-encoded user ID from the reset link.",
+    )
+    token = serializers.CharField(
+        help_text="One-time cryptographically signed password reset token.",
+    )
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Validates new password and confirms password reset."""
+    uid = serializers.CharField(
+        help_text="Base64-encoded user ID from the reset link.",
+    )
+    token = serializers.CharField(
+        help_text="One-time cryptographically signed password reset token.",
+    )
+    new_password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        style={"input_type": "password"},
+        help_text="New password (min 8 characters, cannot be too common).",
+    )
+    new_password_confirm = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        style={"input_type": "password"},
+        help_text="Confirmation matching new password.",
+    )
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate(self, attrs):
+        if attrs.get("new_password") != attrs.get("new_password_confirm"):
+            raise serializers.ValidationError({"new_password_confirm": "Passwords do not match."})
+        return attrs

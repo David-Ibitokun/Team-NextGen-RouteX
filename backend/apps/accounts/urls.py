@@ -14,4 +14,7 @@ urlpatterns = [
     path("me/reports/", views.my_reports_view, name="auth-my-reports"),
     path("dashboard-summary/", views.dashboard_summary_view, name="auth-dashboard-summary"),
     path("profile/", views.profile_update_view, name="auth-profile-update"),
+    path("password-reset/", views.password_reset_request_view, name="auth-password-reset-request"),
+    path("password-reset/validate/", views.password_reset_validate_view, name="auth-password-reset-validate"),
+    path("password-reset/confirm/", views.password_reset_confirm_view, name="auth-password-reset-confirm"),
 ]

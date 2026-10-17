@@ -5,6 +5,8 @@ import { MapPage } from "../pages/MapPage";
 import { ReportHazardPage } from "../pages/ReportHazardPage";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
+import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "../pages/ResetPasswordPage";
 import { CustomerDashboardPage } from "../pages/CustomerDashboardPage";
 import { ModerationPage } from "../pages/ModerationPage";
 import { AdminDashboardPage } from "../pages/AdminDashboardPage";
@@ -30,6 +32,14 @@ export const router = createBrowserRouter([
   {
     path: "/register",
     element: <RegisterPage />,
+  },
+  {
+    path: "/forgot-password",
+    element: <ForgotPasswordPage />,
+  },
+  {
+    path: "/reset-password",
+    element: <ResetPasswordPage />,
   },
   {
     path: "/dashboard",

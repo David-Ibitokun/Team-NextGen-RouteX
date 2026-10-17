@@ -107,6 +107,36 @@ export const authService = {
     const response = await apiClient.patch("/auth/profile/", payload);
     return response.data;
   },
+
+  /**
+   * Request password reset link for user's registered email
+   * @param {string} email
+   */
+  async requestPasswordReset(email) {
+    await this.getCsrfToken();
+    const response = await apiClient.post("/auth/password-reset/", { email });
+    return response.data;
+  },
+
+  /**
+   * Validate password reset token and user id
+   * @param {string} uid
+   * @param {string} token
+   */
+  async validateResetToken(uid, token) {
+    const response = await apiClient.post("/auth/password-reset/validate/", { uid, token });
+    return response.data;
+  },
+
+  /**
+   * Set new password with verified reset token
+   * @param {Object} payload - { uid, token, new_password, new_password_confirm }
+   */
+  async confirmPasswordReset(payload) {
+    await this.getCsrfToken();
+    const response = await apiClient.post("/auth/password-reset/confirm/", payload);
+    return response.data;
+  },
 };
 
 export const hazardService = {
@@ -246,6 +276,16 @@ export const adminService = {
   async updateUserRole(userId, role, reason = "") {
     await authService.getCsrfToken();
     const response = await apiClient.patch(`/admin/users/${userId}/role/`, { role, reason });
+    return response.data;
+  },
+
+  /**
+   * Permanently delete a user account
+   * @param {number|string} userId
+   */
+  async deleteUser(userId) {
+    await authService.getCsrfToken();
+    const response = await apiClient.delete(`/admin/users/${userId}/`);
     return response.data;
   },
 

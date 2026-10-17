@@ -2,8 +2,21 @@
 RouteX Accounts Views
 Session-based authentication: CSRF cookie, register, login, logout, me.
 """
+import base64
+import logging
+import os
+import time
+from email.mime.image import MIMEImage
+from django.conf import settings
+from django.core.cache import cache
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import EmailMultiAlternatives
 from django.middleware.csrf import get_token
+from django.template.loader import render_to_string
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -17,8 +30,19 @@ from .serializers import (
     UserLoginSerializer,
     UserPublicSerializer,
     UserProfileUpdateSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetValidateSerializer,
+    PasswordResetConfirmSerializer,
 )
 from apps.hazards.serializers import HazardReportSerializer
+
+logger = logging.getLogger(__name__)
+
+
+class PasswordResetRateThrottle(AnonRateThrottle):
+    """Limit password reset requests to 10 per minute per IP."""
+    rate = "10/min"
+    scope = "password_reset"
 
 
 class LoginRateThrottle(AnonRateThrottle):
@@ -266,7 +290,218 @@ def profile_update_view(request):
         user.email = serializer.validated_data["email"]
         user.save(update_fields=["email"])
 
-    from django.contrib.auth.models import User
     user = User.objects.select_related("profile").get(pk=user.pk)
     return Response(UserPublicSerializer(user).data, status=status.HTTP_200_OK)
+
+
+PASSWORD_RESET_COOLDOWN_SECONDS = 120  # 2 minutes
+
+
+@extend_schema(
+    tags=["auth"],
+    summary="Request a password reset link",
+    description=(
+        "Sends a secure password reset link to the user's registered email address. "
+        "Enforces a 2-minute cooldown between reset requests per email address."
+    ),
+    request=PasswordResetRequestSerializer,
+    responses={
+        200: {
+            "type": "object",
+            "properties": {
+                "detail": {"type": "string"},
+                "retry_after": {"type": "integer"},
+            },
+        },
+        400: {"description": "Invalid email format."},
+        429: {"description": "Cooldown active. Try again after 2 minutes."},
+    },
+)
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([PasswordResetRateThrottle])
+def password_reset_request_view(request):
+    """Initiates password reset by emailing a time-limited tokenized link with 2-minute cooldown."""
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    email = serializer.validated_data["email"].lower().strip()
+    cache_key = f"pwd_reset_cooldown_{email}"
+    last_sent = cache.get(cache_key)
+
+    if last_sent is not None:
+        elapsed = time.time() - last_sent
+        remaining = int(PASSWORD_RESET_COOLDOWN_SECONDS - elapsed)
+        if remaining > 0:
+            return Response(
+                {
+                    "detail": f"Please wait {remaining} seconds before requesting another reset email.",
+                    "retry_after": remaining,
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+    # Set 2-minute cooldown in cache
+    cache.set(cache_key, time.time(), timeout=PASSWORD_RESET_COOLDOWN_SECONDS)
+
+    users = User.objects.filter(email__iexact=email, is_active=True)
+    frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@routex.org")
+
+    for user in users:
+        try:
+            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            reset_url = f"{frontend_url}/reset-password?uid={uidb64}&token={token}"
+
+            display_name = ""
+            try:
+                display_name = user.profile.display_name
+            except Exception:
+                pass
+            user_name = display_name or user.username or "there"
+
+            logo_path = os.path.join(settings.BASE_DIR, "static", "routex-email-logo.png")
+            logo_bytes = b""
+            logo_b64 = ""
+            if os.path.exists(logo_path):
+                try:
+                    with open(logo_path, "rb") as f:
+                        logo_bytes = f.read()
+                        logo_b64 = base64.b64encode(logo_bytes).decode("ascii")
+                except Exception:
+                    pass
+
+            context = {
+                "user_name": user_name,
+                "user_email": user.email,
+                "reset_url": reset_url,
+                "logo_cid": "routex_logo" if logo_bytes else "",
+                "logo_base64": logo_b64,
+                "logo_url": f"{frontend_url}/routex-logo.png",
+            }
+
+            subject = "Reset your RouteX password"
+            html_content = render_to_string("emails/password_reset.html", context)
+            text_content = render_to_string("emails/password_reset.txt", context)
+
+            msg = EmailMultiAlternatives(subject, text_content, from_email, [user.email])
+            msg.attach_alternative(html_content, "text/html")
+
+            # Attach inline CID image if logo binary is present
+            if logo_bytes:
+                mime_img = MIMEImage(logo_bytes, _subtype="png")
+                mime_img.add_header("Content-ID", "<routex_logo>")
+                mime_img.add_header("Content-Disposition", "inline", filename="routex-logo.png")
+                msg.attach(mime_img)
+
+            msg.send(fail_silently=False)
+            logger.info("Password reset email successfully dispatched to %s (%s)", user.username, user.email)
+        except Exception as exc:
+            logger.error("Failed to send password reset email to %s: %s", user.email, exc)
+
+    return Response({
+        "detail": "If an account with that email address exists, a password reset link has been sent to your inbox.",
+        "retry_after": PASSWORD_RESET_COOLDOWN_SECONDS,
+    }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["auth"],
+    summary="Validate password reset token",
+    description="Validates whether a reset token and uid are valid and have not expired.",
+    request=PasswordResetValidateSerializer,
+    responses={
+        200: {
+            "type": "object",
+            "properties": {
+                "valid": {"type": "boolean"},
+                "username": {"type": "string"},
+            },
+        },
+        400: {"description": "Invalid or expired token."},
+    },
+)
+@api_view(["POST", "GET"])
+@permission_classes([AllowAny])
+def password_reset_validate_view(request):
+    """Verifies that a password reset token is active and corresponds to a valid user."""
+    data = request.data if request.method == "POST" else request.query_params
+    serializer = PasswordResetValidateSerializer(data=data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    uid = serializer.validated_data["uid"]
+    token = serializer.validated_data["token"]
+
+    try:
+        user_id = force_str(urlsafe_base64_decode(uid))
+        user = User.objects.get(pk=user_id, is_active=True)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response({
+            "valid": False,
+            "detail": "This password reset link is invalid or has expired. Please request a new one."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not default_token_generator.check_token(user, token):
+        return Response({
+            "valid": False,
+            "detail": "This password reset link is invalid or has expired. Please request a new one."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({
+        "valid": True,
+        "username": user.username,
+    }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["auth"],
+    summary="Confirm password reset",
+    description="Resets the user's password using the provided reset token and user ID.",
+    request=PasswordResetConfirmSerializer,
+    responses={
+        200: {
+            "type": "object",
+            "properties": {
+                "detail": {"type": "string"},
+            },
+        },
+        400: {"description": "Validation errors or invalid token."},
+    },
+)
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def password_reset_confirm_view(request):
+    """Applies the new password if the reset token and user ID are valid."""
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    uid = serializer.validated_data["uid"]
+    token = serializer.validated_data["token"]
+    new_password = serializer.validated_data["new_password"]
+
+    try:
+        user_id = force_str(urlsafe_base64_decode(uid))
+        user = User.objects.get(pk=user_id, is_active=True)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response({
+            "detail": "This password reset link is invalid or has expired. Please request a new one."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not default_token_generator.check_token(user, token):
+        return Response({
+            "detail": "This password reset link is invalid or has expired. Please request a new one."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+
+    logger.info("Password reset successfully completed for user %s", user.username)
+
+    return Response({
+        "detail": "Your password has been successfully reset. You can now sign in with your new password."
+    }, status=status.HTTP_200_OK)
 

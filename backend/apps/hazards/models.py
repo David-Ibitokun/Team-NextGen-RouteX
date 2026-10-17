@@ -92,6 +92,18 @@ class HazardReport(models.Model):
         label = self.location_label or f"({self.latitude}, {self.longitude})"
         return f"[{self.get_category_display()}] {label} - {self.get_status_display()}"
 
+    def save(self, *args, **kwargs):
+        if self.photo and hasattr(self.photo, "file") and not getattr(self, "_webp_processed", False):
+            import os
+            from .image_utils import convert_image_to_webp
+            ext = os.path.splitext(self.photo.name)[1].lower()
+            if ext != ".webp":
+                converted = convert_image_to_webp(self.photo)
+                if converted:
+                    self.photo = converted
+            self._webp_processed = True
+        super().save(*args, **kwargs)
+
     @property
     def freshness_info(self):
         """Calculate human-readable freshness and age."""

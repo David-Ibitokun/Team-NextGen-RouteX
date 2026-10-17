@@ -41,6 +41,8 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
 allowed_hosts_raw = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]")
 ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_raw.split(",") if host.strip()]
+if DEBUG and "testserver" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("testserver")
 
 # Application definition
 INSTALLED_APPS = [
@@ -134,6 +136,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 if "test" in sys.argv:
     PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+    EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
 
 # Internationalization
@@ -207,3 +210,27 @@ CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_raw.split(",") if orig
 # Google Gemini AI Feature Flag (Backend service, optional future phase)
 GEMINI_AI_ENABLED = os.environ.get("GEMINI_AI_ENABLED", "False").lower() in ("true", "1", "yes")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# Email API Configuration (Imported from .env)
+EMAIL_BACKEND = (
+    "django.core.mail.backends.locmem.EmailBackend"
+    if "test" in sys.argv
+    else os.environ.get(
+        "EMAIL_BACKEND",
+        "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
+    )
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp-relay.brevo.com")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False").lower() in ("true", "1", "yes")
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", 30))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "noreply@routex.org")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# Frontend Application URL & Password Reset Settings
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+TEST_RESET_EMAIL = os.environ.get("TEST_RESET_EMAIL", "")
+PASSWORD_RESET_TIMEOUT = int(os.environ.get("PASSWORD_RESET_TIMEOUT", 86400))  # 24 hours in seconds

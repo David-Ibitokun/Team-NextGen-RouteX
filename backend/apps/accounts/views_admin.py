@@ -189,6 +189,63 @@ def admin_user_role_update_view(request, user_id):
 
 @extend_schema(
     tags=["admin"],
+    summary="Delete a user account",
+    description="Permanently deletes a user account with safeguards (cannot delete self or the last superuser). Requires IsPlatformAdmin.",
+    responses={
+        200: {"description": "User account successfully deleted"},
+        400: {"description": "Self-deletion or last superuser deletion blocked"},
+        404: {"description": "User not found"},
+    },
+)
+@api_view(["DELETE"])
+@permission_classes([IsPlatformAdmin])
+def admin_user_delete_view(request, user_id):
+    """Permanently deletes a user account with safeguards and audit logging."""
+    try:
+        target_user = User.objects.select_related("profile").get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Prevent admin from deleting their own active account
+    if target_user.pk == request.user.pk:
+        return Response(
+            {"detail": "You cannot delete your own active administrative account."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Prevent deleting the last superuser
+    if target_user.is_superuser:
+        superuser_count = User.objects.filter(is_superuser=True).count()
+        if superuser_count <= 1:
+            return Response(
+                {"detail": "Cannot delete the sole remaining superuser account."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    username = target_user.username
+    email = target_user.email
+    user_pk = target_user.pk
+
+    # Record deletion audit log before removing target user
+    SystemAuditLog.objects.create(
+        actor=request.user,
+        action_type="USER_DELETION",
+        target_id=str(user_pk),
+        details=f"Permanently deleted user account '{username}' (ID #{user_pk}, Email: {email or 'None'}).",
+    )
+
+    # Delete the user (Hazard reports & confirmations have on_delete=SET_NULL to preserve public road safety data)
+    target_user.delete()
+
+    return Response(
+        {"detail": f"User account @{username} has been permanently deleted."},
+        status=status.HTTP_200_OK,
+    )
+
+
+
+@extend_schema(
+    tags=["admin"],
     summary="Get or update platform operational settings",
     description="Retrieve or update operational rules (confirmation threshold, freshness window, upload limits).",
     request=PlatformSettingsSerializer,
