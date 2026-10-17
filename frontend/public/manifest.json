@@ -1,0 +1,51 @@
+{
+  "short_name": "RouteX",
+  "name": "RouteX — Community Road Awareness",
+  "description": "Know the road ahead with real-time community-reported road hazards, potholes, flooding, and commute updates.",
+  "id": "/",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#142B3B",
+  "theme_color": "#087F8C",
+  "lang": "en",
+  "scope": "/",
+  "categories": ["navigation", "travel", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "48x48 72x72 96x96 128x128",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/routex-logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Explore Map",
+      "short_name": "Map",
+      "description": "Open live interactive road hazard map",
+      "url": "/map",
+      "icons": [{ "src": "/favicon.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Report Hazard",
+      "short_name": "Report",
+      "description": "Submit a road hazard with photo and location",
+      "url": "/report",
+      "icons": [{ "src": "/favicon.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Citizen Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your road reports and impact",
+      "url": "/dashboard",
+      "icons": [{ "src": "/favicon.svg", "sizes": "96x96" }]
+    }
+  ]
+}

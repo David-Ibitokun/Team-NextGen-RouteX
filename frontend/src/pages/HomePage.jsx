@@ -1,0 +1,177 @@
+import React, { useState, useEffect, useCallback } from "react";
+import { AppHeader } from "../components/layout/AppHeader";
+import { MobileBottomNavigation } from "../components/layout/MobileBottomNavigation";
+import { HazardMap } from "../components/map/HazardMap";
+import { HazardFilters } from "../components/hazards/HazardFilters";
+import { HazardCard } from "../components/hazards/HazardCard";
+import { HazardDetailsPanel } from "../components/hazards/HazardDetailsPanel";
+import { ReportHazardForm } from "../components/forms/ReportHazardForm";
+import { LoadingState } from "../components/feedback/LoadingState";
+import { EmptyState } from "../components/feedback/EmptyState";
+import { ErrorState } from "../components/feedback/ErrorState";
+import { DemoDataBanner } from "../components/feedback/DemoDataBanner";
+import { hazardService } from "../services/apiClient";
+
+export function HomePage() {
+  const [hazards, setHazards] = useState([]);
+  const [selectedHazard, setSelectedHazard] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [mobileTab, setMobileTab] = useState("map"); // "map" | "list"
+
+  const fetchHazards = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params = {};
+      if (selectedCategory) params.category = selectedCategory;
+      if (selectedStatus) params.status = selectedStatus;
+
+      const response = await hazardService.getHazards(params);
+      // Response is either paginated { results: [...] } or direct array
+      const items = response.results ? response.results : response;
+      setHazards(items);
+
+      // If selectedHazard is still present, update it with fresh data
+      if (selectedHazard) {
+        const found = items.find((h) => h.id === selectedHazard.id);
+        if (found) setSelectedHazard(found);
+      }
+    } catch (err) {
+      setError("We could not load road hazards. Check your connection or try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedCategory, selectedStatus]);
+
+  useEffect(() => {
+    fetchHazards();
+  }, [fetchHazards]);
+
+  const handleHazardUpdated = (updatedHazard) => {
+    setHazards((prev) =>
+      prev.map((h) => (h.id === updatedHazard.id ? updatedHazard : h))
+    );
+    setSelectedHazard(updatedHazard);
+  };
+
+  const handleReportCreated = (newHazard) => {
+    setHazards((prev) => [newHazard, ...prev]);
+    setSelectedHazard(newHazard);
+    setShowReportModal(false);
+    setMobileTab("map");
+  };
+
+  const hasDemoReports = hazards.some((h) => h.is_demo);
+
+  return (
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#F7F9FA] dark:bg-[#0B161E] text-[#142B3B] dark:text-slate-100 transition-colors">
+      <AppHeader onReportClick={() => setShowReportModal(true)} />
+      <DemoDataBanner hasDemoReports={hasDemoReports} />
+
+      {/* Main Container */}
+      <main className="flex-1 flex overflow-hidden relative">
+        {/* Left Sidebar (Desktop 30-35%, Hidden on Mobile when map active) */}
+        <section
+          aria-label="Hazard list and filters"
+          className={`w-full md:w-[380px] lg:w-[420px] h-full flex flex-col bg-white dark:bg-[#142533] border-r border-[#DCE4E8] dark:border-slate-800 shrink-0 z-10 transition-colors ${
+            mobileTab === "map" ? "hidden md:flex" : "flex"
+          }`}
+        >
+          <HazardFilters
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            selectedStatus={selectedStatus}
+            onSelectStatus={setSelectedStatus}
+            totalCount={hazards.length}
+          />
+
+          {/* List or States */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-2.5 pb-20 md:pb-4">
+            {loading && <LoadingState message="Fetching road hazards..." />}
+
+            {!loading && error && (
+              <ErrorState message={error} onRetry={fetchHazards} />
+            )}
+
+            {!loading && !error && hazards.length === 0 && (
+              <EmptyState
+                title="No reports match these filters"
+                message="No reports match these filters. Try another filter or report a hazard you see."
+                actionLabel="Report a hazard"
+                onAction={() => setShowReportModal(true)}
+              />
+            )}
+
+            {!loading &&
+              !error &&
+              hazards.map((hazard) => (
+                <HazardCard
+                  key={hazard.id}
+                  hazard={hazard}
+                  isSelected={selectedHazard?.id === hazard.id}
+                  onSelect={(h) => {
+                    setSelectedHazard(h);
+                    setMobileTab("map");
+                  }}
+                />
+              ))}
+          </div>
+        </section>
+
+        {/* Center/Right Map Area (Takes remaining width ~65-70%) */}
+        <section
+          aria-label="Interactive map"
+          className={`flex-1 h-full relative ${
+            mobileTab === "list" ? "hidden md:block" : "block"
+          }`}
+        >
+          <HazardMap
+            hazards={hazards}
+            selectedHazard={selectedHazard}
+            onSelectHazard={(h) => setSelectedHazard(h)}
+          />
+
+          {/* Floating Details Slide-over for Selected Report */}
+          {selectedHazard && (
+            <div className="absolute top-0 right-0 bottom-0 w-full sm:w-[380px] md:w-[400px] z-1000 shadow-xl bg-white dark:bg-[#142533] animate-in slide-in-from-right duration-200">
+              <HazardDetailsPanel
+                hazard={selectedHazard}
+                onClose={() => setSelectedHazard(null)}
+                onHazardUpdated={handleHazardUpdated}
+              />
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNavigation
+        activeTab={mobileTab}
+        onTabChange={setMobileTab}
+        onReportClick={() => setShowReportModal(true)}
+      />
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-2000 overflow-y-auto"
+        >
+          <div className="w-full max-w-lg my-8">
+            <ReportHazardForm
+              onSuccess={handleReportCreated}
+              onCancel={() => setShowReportModal(false)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default HomePage;

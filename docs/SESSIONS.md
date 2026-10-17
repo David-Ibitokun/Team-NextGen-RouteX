@@ -1,0 +1,181 @@
+# RouteX — Session Notes
+
+> Read this at the start of each session. At the end, add a dated entry at the top of the session log with files changed, decisions, commands/tests run, actual results, blockers, and the next task.
+
+## Current state
+- **Team:** NextGen
+- **Product:** RouteX
+- **Tagline:** Know the Road Ahead.
+- **Scope:** Universal Community Road Awareness (not restricted to any single municipality)
+- **Status:** Full MVP Complete with 4-Tier RBAC & 3 Dedicated Dashboards (Citizen, Moderator, Custom Platform Administrator — 0% reliance on Django built-in admin), PWA Native Experience (offline shell cache & install prompts), 28 Passing Backend Tests (<0.8s), 0 Vite Build Errors, Universal Scope, and Complete Full-Stack Documentation.
+- **Frontend:** React 18 + Vite 6 + Tailwind CSS v4 + React Leaflet with dynamic Dark Matter / OSM tiles + Lucide React + PWA Service Worker.
+- **Backend:** Django 5.1 + Django REST Framework + drf-spectacular (OpenAPI 3.0 / Swagger UI / ReDoc).
+- **Database:** Migrations applied for `accounts` (with `PlatformSettings` and `SystemAuditLog`), `hazards`, `moderation` (PostgreSQL supported, SQLite local fallback).
+- **Environment:** `.env.example` template and active local `.env` configured.
+
+## Session log
+
+### 2026-10-17 (Part 5) — OpenStreetMap Zero-Key Tile Fix, Database Seeding (`seed_db.py` / `seed_db.sql`), and Swagger Docs Refresh
+- **Work completed:**
+  - **OpenStreetMap Tile Restoration (Zero API Keys):**
+    - Identified CARTO's mandatory API key enforcement which caused the "API KEY REQUIRED carto.com/basemaps/apikey" watermark grid.
+    - Updated [`HazardMap.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/map/HazardMap.jsx) and [`LocationPickerMap.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/map/LocationPickerMap.jsx) to use official OpenStreetMap tiles (`https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`).
+    - Added CSS dark mode tile filter in [`frontend/src/index.css`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/index.css) targeting `.dark .leaflet-tile-pane` to gracefully invert street tiles into dark navy/slate without API keys while leaving map pins and popups full-color.
+    - Added dev server proxy for `/api` and `/media` in [`frontend/vite.config.js`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/vite.config.js) and set `CORS_ALLOW_CREDENTIALS = True` in [`backend/config/settings.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/backend/config/settings.py).
+  - **Database Seeder (`seed_db.py` & `seed_db.sql`):**
+    - Created [`seed_db.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/seed_db.py) and generated pure SQL [`seed_db.sql`](file:///c:/Users/ibito/Documents/GitHub/RouteX/seed_db.sql).
+    - Populated all 3 primary user account types:
+      - **Administrator:** `admin` / `AdminPassword123!`
+      - **Moderator:** `moderator` / `ModPassword123!`
+      - **Citizen:** `citizen` / `CitizenPassword123!`
+      - Plus extra active commuters (`chidi_okonkwo`, `amara_adebayo`, `tunde_balogun` / `Citizen123!`).
+    - Seeded 12 diverse road hazards across all categories and statuses, 16 community confirmations, 3 queued flags for moderation review, and audit trail logs.
+    - Updated Windows batch launcher [`run_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_backend.bat) to run `seed_db.py`.
+  - **Swagger / OpenAPI Documentation Overhaul:**
+    - Updated `SPECTACULAR_SETTINGS["TAGS"]` in `settings.py` to organize all endpoints into 5 primary functional collections: `hazards`, `auth`, `moderation`, `admin`, and `system`.
+    - Added OpenAPI schema decorations to discovery endpoints in `config/urls.py`.
+    - Validated OpenAPI schema with 0 errors (`python backend/manage.py spectacular --validate`).
+  - **Documentation & Verification:**
+    - Updated root [`README.md`](file:///c:/Users/ibito/Documents/GitHub/RouteX/README.md) and [`DOCUMENTATION.md`](file:///c:/Users/ibito/Documents/GitHub/RouteX/DOCUMENTATION.md) with credentials and seeding instructions.
+    - Verified backend tests: 28/28 tests passed in 0.61s.
+    - Verified frontend production build: 0 errors in 13.59s.
+- **Commands & tests run:**
+  - `python seed_db.py`: Database populated with accounts, hazards, confirmations, flags, and audit records.
+  - `python backend/manage.py spectacular --validate`: Validated OpenAPI schema with 0 errors.
+  - `python backend/manage.py test apps`: 28/28 passed in 0.610s (100% success rate).
+  - `npm --prefix frontend run build`: Vite build completed cleanly in 13.59s with 0 errors.
+- **Work completed:**
+  - **4-Tier Strict Server-Enforced RBAC:**
+    - Established clear permission matrix for: *Anonymous Visitor*, *Registered User (Citizen)*, *Moderator*, and *Platform Administrator*.
+    - Implemented DRF permission classes in [`backend/apps/accounts/permissions.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/backend/apps/accounts/permissions.py): `IsCitizen`, `IsModeratorUser`, and `IsPlatformAdmin`.
+    - Normal self-registration is strictly restricted to `role="citizen"`. Elevation to Moderator or Administrator can only be executed by an active Administrator via protected endpoints.
+  - **3 Dedicated Frontend Dashboards (Zero Django Admin Reliance):**
+    - **Customer / Citizen Dashboard** ([`CustomerDashboardPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/CustomerDashboardPage.jsx) at `/dashboard` & `/my-reports`): Personal impact stats (reports submitted, community confirmations earned, active hazard footprint), filterable submission cards, status badges, and profile preferences editor.
+    - **Moderator Workspace** ([`ModerationPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/ModerationPage.jsx) at `/moderation` & `/moderator`): Priority flagged reports queue, real-time KPI metrics, detailed modal inspection with photographic evidence, mandatory decision rationale enforcement, and chronological platform decision history.
+    - **Platform Administrator Operations Portal** ([`AdminDashboardPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/AdminDashboardPage.jsx) at `/admin-dashboard` & `/admin`): 100% custom React/Tailwind admin dashboard consuming custom REST endpoints (`/api/v1/admin/`). Features platform-wide health metrics, searchable user and role management with promote/demote modal & self-demotion lockout, dynamic operational platform settings form (`confirmation_threshold`, `freshness_hours`, `max_upload_size_mb`), and complete immutable system audit log viewer.
+  - **Custom Backend Administration API (`apps.accounts`):**
+    - Created `PlatformSettings` singleton model and `SystemAuditLog` model with migration `0002_platformsettings_systemauditlog`.
+    - Built administrative endpoints in [`backend/apps/accounts/views_admin.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/backend/apps/accounts/views_admin.py):
+      - `GET /api/v1/admin/stats/`: Global platform telemetry.
+      - `GET /api/v1/admin/users/`: Searchable user list with role filters and stats.
+      - `PATCH /api/v1/admin/users/<id>/role/`: Role modification with audit trail logging.
+      - `GET / PATCH /api/v1/admin/settings/`: Operational parameters tuning.
+      - `GET /api/v1/admin/audit-logs/`: Paginated administrative activity trail.
+    - Created citizen profile endpoints in [`backend/apps/accounts/views.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/backend/apps/accounts/views.py): `GET /api/v1/auth/dashboard-summary/` and `PATCH /api/v1/auth/profile/`.
+    - Added moderator endpoints in [`backend/apps/moderation/views.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/backend/apps/moderation/views.py): `GET /api/v1/moderation/stats/` and `GET /api/v1/moderation/history/`.
+  - **Progressive Web App (PWA) Implementation:**
+    - Created Web App Manifest ([`frontend/public/manifest.json`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/public/manifest.json)) with RouteX branding, standalone display, and navigation shortcuts.
+    - Built Service Worker ([`frontend/public/sw.js`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/public/sw.js)) with offline app shell caching, stale-while-revalidate for static assets, network-first for documents, and clean API bypass.
+    - Registered Service Worker in [`frontend/src/main.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/main.jsx) and meta tags in [`frontend/index.html`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/index.html).
+    - Integrated native PWA install button in header ([`AppHeader.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/layout/AppHeader.jsx)) and landing page hero banner.
+  - **Landing Page Enhancements ([`LandingPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/LandingPage.jsx)):**
+    - Added "Live Community Road Pulse" component streaming recent community hazard reports with live category badges and freshness counters.
+    - Added "Emergency Advisory vs. RouteX" clear comparison guide (when to dial 112/911 vs when to use RouteX).
+    - Added "Citizen Road Safety Observer Pledge" reinforcing 4 responsible community principles.
+    - Added PWA Mobile App Experience banner with one-click install button.
+  - **Comprehensive Backend Integration Tests (28/28 Passing):**
+    - Authored [`backend/apps/accounts/tests/test_role_permissions.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/backend/apps/accounts/tests/test_role_permissions.py) testing all 4 roles, public access, citizen boundaries, moderator queue restrictions, admin settings updates, role promotions, and audit log generation.
+- **Commands & tests run:**
+  - `python backend/manage.py test apps`: 28/28 tests passed in 0.773s (100% success rate).
+  - `npm run build`: Vite production build passed in 15.24s with 0 errors.
+- **Next task:**
+  - Production containerization (Docker/Docker Compose) and cloud staging deployment.
+
+### 2026-10-17 (Part 3) — Team Documentation, Scope Generalization, Scroll Animations & README Overhaul
+- **Work completed:**
+  - **Comprehensive Page Documentation:** Authored [`DOCUMENTATION.md`](file:///c:/Users/ibito/Documents/GitHub/RouteX/DOCUMENTATION.md) (and synchronized [`docs/DOCUMENTATION.md`](file:///c:/Users/ibito/Documents/GitHub/RouteX/docs/DOCUMENTATION.md)) covering full-stack system architecture, page-by-page walkthrough for all 6 frontend routes (`/`, `/map`, `/report`, `/login` & `/register`, `/my-reports`, `/moderation`), component hierarchy, state/context architecture, API client with CSRF interceptors, complete backend data models, serializers, views, 14-endpoint API matrix, and developer onboarding instructions.
+  - **Universal Scope (Removed Lagos-Only Branding):**
+    - Removed "Lagos Pilot" badge from [`AppHeader.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/layout/AppHeader.jsx).
+    - Generalized copy across [`LandingPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/LandingPage.jsx), [`MapPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/MapPage.jsx), [`HomePage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/HomePage.jsx), [`RegisterPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/RegisterPage.jsx), [`MyReportsPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/MyReportsPage.jsx), and [`ReportHazardForm.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/forms/ReportHazardForm.jsx).
+    - Generalized backend OpenAPI schema description in [`settings.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/backend/config/settings.py) and health check in [`urls.py`](file:///c:/Users/ibito/Documents/GitHub/RouteX/backend/config/urls.py).
+    - Updated `seed_demo_hazards.py` help text and documentation.
+  - **Scroll Animations System:**
+    - Created [`RevealOnScroll.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/common/RevealOnScroll.jsx) using the browser's native `IntersectionObserver` with hardware-accelerated cubic-bezier transitions (`0.16, 1, 0.3, 1`), staggered animation delays, directional options (`up`, `down`, `left`, `right`, `scale`, `fade`), and strict `prefers-reduced-motion` accessibility support.
+    - Wrapped all sections of [`LandingPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/LandingPage.jsx) (Hero, Trust Strip, How It Works, Features, Category Grid, Safety & Trust, FAQ accordion, Lower CTA) with coordinated scroll reveal transitions.
+  - **Pure Lucide React Iconography:** Verified that all icons across the web application use `lucide-react` exclusively with clean semantic colors.
+  - **Root `README.md` Overhaul:** Re-wrote the project `README.md` with modern badge matrix (16/16 tests passing, OpenAPI 3.0, Vite passing, Lucide React), complete page-by-page walkthrough, scroll animation overview, full API endpoints matrix, system architecture diagram, and test coverage breakdown.
+- **Commands & tests run:**
+  - `python backend/manage.py test apps`: 16/16 tests passed in 0.686s (100% success rate).
+  - `npm run build`: Vite build verified with 0 errors.
+- **Next task:**
+  - Ready for team onboarding and cloud deployment review.
+
+### 2026-10-17 (Part 2) — Premium RouteX Landing Page, Browser Auth, Moderation Queue, and 16 Unit Tests
+- **Work completed:**
+  - Implemented production-quality public Landing Page at `/` in [`LandingPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/LandingPage.jsx) featuring:
+    - Responsive header with RouteX logo mark + wordmark, navigation links, explore map, auth links, theme switch, and mobile menu.
+    - Two-column hero section with eyebrow label, headline, supporting copy, primary/secondary CTAs, reassurance notice, and live Leaflet Lagos map preview with real/demo data indicators.
+    - Three-principle trust strip (community-powered reports, timestamps, transparent report status).
+    - Three-step workflow (01 Explore map, 02 Share what you see, 03 Help keep reports useful).
+    - Four-part feature showcase with clean cards and preview flows.
+    - Five hazard category interactive cards linking directly to pre-filtered map views (`/map?category=...`).
+    - Safety and trust section ("Useful information. Clear about what we know.") with calm, honest community governance principles and safety disclaimers.
+    - Seven-item accessible FAQ accordion matching `PLAN.md` and `VOICE.md`.
+    - Prominent lower CTA banner and brand footer with OpenStreetMap attribution.
+  - Implemented interactive Map Page at `/map` in [`MapPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/MapPage.jsx) with URL search param syncing and viewport bounding box support (`bbox=west,south,east,north`).
+  - Implemented session-based browser authentication flow:
+    - [`LoginPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/LoginPage.jsx) connected to `POST /api/v1/auth/login/` with username/email support and redirect state.
+    - [`RegisterPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/RegisterPage.jsx) with password confirmation and validation.
+    - Created [`AuthContext.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/context/AuthContext.jsx) with session restoration via `/api/v1/auth/me/`.
+  - Implemented user dashboard at [`MyReportsPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/MyReportsPage.jsx) displaying user submission history, freshness, and confirmations.
+  - Implemented protected moderator review queue at [`ModerationPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/ModerationPage.jsx) with role-based access checks, action modal (review, confirm, resolve, reject with reason), and audit history viewer.
+  - Built backend moderation app (`serializers.py`, `views.py`, `urls.py`) and integrated into `config/urls.py`.
+  - Added unique confirmation database constraint preventing duplicate confirmations, and automatic status transition to `community_confirmed` when confirmations reach 3.
+  - Configured fast MD5 hasher in `settings.py` during testing.
+- **Commands & tests run:**
+  - `python backend/manage.py makemigrations; python backend/manage.py migrate`: Applied migration `0002_confirmation_unique_user_report_confirmation`.
+  - `python backend/manage.py test apps`: Ran 16 unit & API tests in 0.565s, 100% passed (0 failures).
+  - `python backend/manage.py spectacular --validate`: Validated OpenAPI 3.0 schema generation with 0 errors.
+  - `npm run build`: Vite build succeeded in 53.55s with 0 errors.
+- **Next task:**
+  - Public demo deployment configuration and evaluation of marker clustering for dense hazard clusters.
+- **Work completed:**
+  - Designed and generated vector SVG brand logo combining map pin geometry, winding road curve with asphalt lane markings, and destination waypoint circle.
+  - Created standalone SVG assets: [`frontend/public/routex-logo.svg`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/public/routex-logo.svg) and [`frontend/public/favicon.svg`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/public/favicon.svg).
+  - Created reusable [`RouteXLogo.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/common/RouteXLogo.jsx) component with configurable sizing and typography options.
+  - Implemented persistent theme system using [`ThemeContext.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/context/ThemeContext.jsx) with `localStorage` memory and OS `prefers-color-scheme` fallback.
+  - Implemented Sun/Moon theme toggle switch in [`AppHeader.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/layout/AppHeader.jsx).
+  - Configured Tailwind CSS v4 `@custom-variant dark (&:where(.dark, .dark *));` and dark mode design tokens in [`frontend/src/index.css`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/index.css).
+  - Added dynamic dark mode map tiles (CartoDB Dark Matter) in [`HazardMap.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/map/HazardMap.jsx) and [`LocationPickerMap.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/map/LocationPickerMap.jsx) with CARTO attribution.
+  - Updated all UI components, panels, cards, forms, and navigation to support dark mode themes seamlessly.
+  - Verified frontend production build (`vite build`: 15.18s, 0 errors) and backend tests (10/10 passed).
+
+### 2026-10-16 (Part 2) — Swagger UI docs, one-click Windows launchers (.bat), and system documentation
+- **Work completed:**
+  - Integrated `drf-spectacular` into Django backend for automated OpenAPI 3.0 specification.
+  - Implemented interactive Swagger UI at `/api/docs/` and `/api/v1/docs/`.
+  - Implemented ReDoc documentation at `/api/redoc/` and `/api/v1/redoc/`.
+  - Implemented raw OpenAPI 3.0 YAML schema generator at `/api/schema/`.
+  - Annotated `HazardReportViewSet`, actions, serializers, and query parameters (`min_lat`, `max_lat`, `min_lng`, `max_lng`, `category`, `status`, `demo`) with full OpenAPI schemas.
+  - Added Swagger API Docs button directly to frontend header [`AppHeader.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/layout/AppHeader.jsx).
+  - Created Windows one-click batch launcher files:
+    - [`run_all.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_all.bat): Launches backend and frontend in concurrent command windows.
+    - [`run_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_backend.bat): Starts Django development server with migration & seeding checks.
+    - [`run_frontend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_frontend.bat): Starts Vite development server.
+    - [`test_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/test_backend.bat): Runs backend unit/API tests with verbose output.
+  - Created [`DOCUMENTATION.md`](file:///c:/Users/ibito/Documents/GitHub/RouteX/DOCUMENTATION.md): Deep-dive system documentation covering API endpoints, data models, design tokens, security constraints, and developer workflows.
+  - Updated [`README.md`](file:///c:/Users/ibito/Documents/GitHub/RouteX/README.md) with quick-start batch instructions, Swagger links, and test badges.
+- **Commands & tests run:**
+  - `pip install drf-spectacular`: Installed version 0.30.0.
+  - `python backend/manage.py check`: 0 issues identified.
+  - `python backend/manage.py spectacular --validate`: Validated OpenAPI 3.0 schema generation without errors.
+  - `python backend/manage.py test apps.hazards`: 10/10 tests passed in 0.251s.
+  - `npm run build`: Vite build completed in 23.6s with 0 errors.
+- **Next task:**
+  - Await user review, feedback, corrections, and scope additions.
+
+---
+
+### 2026-10-16 — Repository inspection, foundation setup, and first vertical slice delivery
+- **Work completed:**
+  - Inspected repository structure, discovered documentation in `RouteX_Project_Docs/`, initialized local Git repository.
+  - Created root `.gitignore`, `.env.example`, and `.env`.
+  - Created virtualenv and installed Django 5.1, DRF, psycopg, Pillow, and cors-headers.
+  - Created Django backend apps: `accounts`, `hazards`, `moderation`, `common`.
+  - Applied migrations and wrote 10 tests in `test_hazards_api.py`.
+  - Created `seed_demo_hazards` command for realistic Lagos hazards.
+  - Scaffolded frontend with React 18, Vite 6, Tailwind CSS v4 (`@tailwindcss/vite`), and React Leaflet.
+  - Implemented map view, report list, category/status filters, report detail slide-over, report submission form with interactive location picker and photo upload.
+- **Commands & tests run:**
+  - `python manage.py test apps.hazards`: 10 passed.
+  - `npm run build`: Built cleanly.

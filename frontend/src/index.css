@@ -1,0 +1,104 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-routex-navy: #142B3B;
+  --color-routex-teal: #087F8C;
+  --color-routex-offwhite: #F7F9FA;
+  --color-routex-white: #FFFFFF;
+  --color-routex-amber: #F2B544;
+  --color-routex-red: #D64545;
+  --color-routex-green: #27865B;
+  --color-routex-slate: #667784;
+  --color-routex-border: #DCE4E8;
+
+  --color-dark-bg: #0B161E;
+  --color-dark-card: #142533;
+  --color-dark-surface: #1B3142;
+  --color-dark-border: #284459;
+  --color-dark-text: #F1F5F9;
+  --color-dark-muted: #94A3B8;
+}
+
+:root {
+  color: #142B3B;
+  background-color: #F7F9FA;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  scroll-behavior: smooth;
+}
+
+html.dark {
+  color: #F1F5F9;
+  background-color: #0B161E;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Leaflet map styles */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Dark mode OpenStreetMap tiles: smooth dark-slate palette with zero external API key requirements */
+.dark .leaflet-tile-pane {
+  filter: brightness(0.65) invert(1) contrast(3) hue-rotate(200deg) saturate(0.25);
+}
+
+/* Dark mode leaflet popups and controls */
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #142533 !important;
+  color: #F1F5F9 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  border: 1px solid #284459;
+}
+
+.dark .leaflet-bar a {
+  background-color: #142533 !important;
+  color: #F1F5F9 !important;
+  border-bottom: 1px solid #284459 !important;
+}
+
+.dark .leaflet-bar a:hover {
+  background-color: #1B3142 !important;
+  color: #0AA3B3 !important;
+}
+
+.dark .leaflet-container .leaflet-control-attribution {
+  background: rgba(14, 27, 36, 0.85) !important;
+  color: #94A3B8 !important;
+}
+
+.dark .leaflet-container .leaflet-control-attribution a {
+  color: #0AA3B3 !important;
+}
+
+/* Custom map marker icon styles */
+.routex-marker-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  transition: transform 0.15s ease-in-out;
+}
+.routex-marker-pin:hover {
+  transform: scale(1.1);
+}
