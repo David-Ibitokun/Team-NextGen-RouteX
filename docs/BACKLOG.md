@@ -29,19 +29,22 @@
 - [ ] Document cost/quota assumptions and never promise a permanently free quota.
 - [ ] Do not send unnecessary personal data to the model, and do not allow AI alone to mark a report verified, true, resolved, or official.
 
-## Later — React Native mobile
-- [ ] Reassess mobile requirements after the responsive web MVP is stable.
-- [ ] If justified, create a separate React Native + Expo app using the existing Django API.
-- [ ] Reuse API contracts, validation rules, brand tokens, and terminology; do not assume web components can be reused directly.
-- [ ] Evaluate native maps, camera/photo capture, foreground location, push notifications, and offline draft support.
-- [ ] Ask for permissions only when the associated feature is used; avoid background tracking unless a future, explicit product requirement justifies it.
-- [ ] Test on real Android devices and document iOS requirements if iOS support is pursued.
+## Later — React Native mobile (Native Capabilities Phase)
+- [x] Create Expo React Native mobile container (`mobile/`) with WebView, brand tokens, and security boundaries.
+- [x] Implement safe navigation policy: restrict to RouteX origin, delegate external links (`Linking.openURL`), block unsafe schemes.
+- [x] Configure Android back button handling, recoverable error screen, branded loading screen, and config missing diagnostics.
+- [x] Verify cookie sharing, DOM storage, geolocation enablement, and photo upload support via WebView.
+- [ ] Evaluate migration from WebView to pure native screens and React Native native maps in future phase.
+- [ ] Add Expo Push Notifications for real-time hazard alerts.
+- [ ] Evaluate offline draft report queue with SQLite/AsyncStorage.
+- [ ] Test on real physical Android devices and document iOS requirements if iOS support is pursued.
 
 ## Later — scale and expansion
 - [ ] Evaluate deployment, monitoring, backups, media storage, and abuse-report workflows before a public launch.
 - [ ] Expand to additional regions after the initial service has reliable data and moderation.
 
 ## Done
+- [x] **N11 — Initial Mobile Application (Expo React Native Shell):** Created `mobile/` app with Expo SDK 58, TypeScript, `react-native-webview`, safe area provider, RouteX branding, navigation policy, and error recovery.
 - [x] Team name selected: NextGen.
 - [x] Product name selected: RouteX.
 - [x] Tagline selected: “Know the Road Ahead.”

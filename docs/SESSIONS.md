@@ -7,13 +7,72 @@
 - **Product:** RouteX
 - **Tagline:** Know the Road Ahead.
 - **Scope:** Universal Community Road Awareness (not restricted to any single municipality)
-- **Status:** Full MVP Complete with 4-Tier RBAC & 3 Dedicated Dashboards (Citizen, Moderator, Custom Platform Administrator — 0% reliance on Django built-in admin), PWA Native Experience (offline shell cache & install prompts), 28 Passing Backend Tests (<0.8s), 0 Vite Build Errors, Universal Scope, and Complete Full-Stack Documentation.
-- **Frontend:** React 18 + Vite 6 + Tailwind CSS v4 + React Leaflet with dynamic Dark Matter / OSM tiles + Lucide React + PWA Service Worker.
+- **Status:** Full Web MVP & Expo React Native Android Container Complete with 4-Tier RBAC, 3 Dedicated Dashboards, Leaflet OSM Map, PWA Native Experience, 34 Passing Backend Tests, 10 Passing Mobile Tests, 0 Build/Type Errors, and Zero-API-Key Tile Architecture.
+- **Mobile:** Expo SDK 57 (Expo Go Play Store compatible) + TypeScript + `react-native-webview` (v14.0.1) + `react-native-safe-area-context` (v5.10.1) with branded loading, recoverable error recovery, and safe origin navigation policy.
+- **Frontend:** React 18 + Vite 6 + Tailwind CSS v4 + React Leaflet with official OSM tiles + Lucide React + PWA Service Worker.
 - **Backend:** Django 5.1 + Django REST Framework + drf-spectacular (OpenAPI 3.0 / Swagger UI / ReDoc).
 - **Database:** Migrations applied for `accounts` (with `PlatformSettings` and `SystemAuditLog`), `hazards`, `moderation` (PostgreSQL supported, SQLite local fallback).
-- **Environment:** `.env.example` template and active local `.env` configured.
+- **Environment:** `.env.example` templates and active local `.env` configured for root, frontend, and mobile.
 
 ## Session log
+
+### 2026-10-17 (Part 7) — Expo SDK 57 Downgrade for Google Play Store Expo Go Compatibility
+- **Work completed:**
+  - **Expo SDK Downgrade (SDK 58 -> SDK 57):**
+    - Downgraded `mobile/package.json` dependencies to align with Expo Go on the Google Play Store (which natively targets Expo SDK 57):
+      - `expo`: `~57.0.30`
+      - `expo-status-bar`: `~57.0.1`
+      - `react`: `19.2.3`
+      - `react-native`: `0.86.3`
+      - `@types/react`: `~19.2.0`
+      - `react-native-safe-area-context`: `^5.10.1`
+      - `react-native-webview`: `^14.0.1`
+  - **Dependency Resolution & Local Module Extraction:**
+    - Cleaned `node_modules` and re-installed cleanly with `pnpm` to bypass network socket timeouts (`ECONNRESET`).
+    - Packaged and cached hermes-compiler `250829098.0.17` locally.
+  - **Verification & Testing:**
+    - TypeScript compilation `tsc --noEmit` passed with 0 errors.
+    - Automated mobile policy unit tests (`scripts/test_mobile_policy.js`) passed 10/10 tests (100% success rate).
+    - Metro dev server verified starting cleanly with HTTP 200 OK status on `http://localhost:8081`.
+- **Decisions made:**
+  - Standardized on Expo SDK 57 to ensure instant compatibility with the current Expo Go client downloaded from Google Play Store without requiring standalone custom APK builds during testing.
+- **Next recommended tasks:**
+  - Launch `run_mobile.bat` and scan the QR code with Expo Go on a physical Android device or emulator.
+
+
+### 2026-10-17 (Part 6) — Expo React Native Mobile Shell Implementation & Security Hardening
+- **Work completed:**
+  - **Mobile Architecture & Scaffolding:**
+    - Scaffolded dedicated [`mobile/`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile) Expo React Native TypeScript project using Expo SDK 58 and React 19.
+    - Integrated `react-native-webview` (v14.0.1) and `react-native-safe-area-context` (v5.10.1).
+    - Preserved complete independence between mobile dependencies and web frontend/backend dependencies.
+  - **Component & Shell Implementation:**
+    - [`App.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/App.tsx): Root application with `SafeAreaProvider`, `StatusBar`, hardware back button listener (`BackHandler`), and graceful exit dialog on history root.
+    - [`src/components/RouteXHeader.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/components/RouteXHeader.tsx): Branded native header (Navy `#142B3B`, Teal `#087F8C`) with logo mark, title, tagline "Know the Road Ahead.", back navigation button, and reload action.
+    - [`src/components/RouteXWebView.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/components/RouteXWebView.tsx): Encapsulates WebView with error boundaries, loading spinner, cookie sharing, DOM storage, geolocation support (`geolocationEnabled`), file upload support, and React 19 type compatibility.
+    - [`src/components/LoadingScreen.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/components/LoadingScreen.tsx): Clean, accessible RouteX branded loading state with ActivityIndicator and progress aria labels.
+    - [`src/components/ErrorScreen.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/components/ErrorScreen.tsx): Recoverable error screen with user-facing diagnostic tips (network, emulator `10.0.2.2`, LAN IP) and retry action.
+    - [`src/components/ConfigMissingScreen.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/components/ConfigMissingScreen.tsx): Actionable guidance when `EXPO_PUBLIC_WEB_URL` is unconfigured or malformed.
+  - **Security & Navigation Policy:**
+    - [`src/navigation/urlPolicy.ts`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/navigation/urlPolicy.ts): Enforces strict origin allowlist matching `EXPO_PUBLIC_WEB_URL`, intercepts external links (e.g. OpenStreetMap attribution) and delegates to device system browser (`Linking.openURL`), and blocks malicious protocols (`javascript:`, `file:`, `data:`).
+    - Hardened WebView settings: `mixedContentMode="never"`, `thirdPartyCookiesEnabled=false`, `allowFileAccess=false`.
+  - **Developer Experience & Launcher:**
+    - Created [`mobile/.env.example`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/.env.example) with clear instructions for Android Emulator (`10.0.2.2:5173`), LAN testing (`192.168.0.178:5173`), and production.
+    - Created Windows batch launcher [`run_mobile.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_mobile.bat) with auto-creation of `.env` and automated dependency checking.
+    - Created [`mobile/README.md`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/README.md) with complete onboarding, troubleshooting, and architectural explanations.
+- **Commands & tests run:**
+  - `python backend/manage.py test apps`: 34/34 tests passed in 1.327s (100% success rate).
+  - `npm --prefix frontend run build`: Vite build completed cleanly with 0 errors in 7.74s.
+  - `npm --prefix mobile run type-check`: `tsc --noEmit` passed with 0 errors.
+  - `npm --prefix mobile test`: Ran 10/10 automated tests in `scripts/test_mobile_policy.js` with 100% success rate.
+- **Decisions made:**
+  - Kept mobile app as a secure native WebView shell reusing the existing responsive web application to prioritize a reliable, demonstrable hackathon MVP.
+  - Reused web session authentication and CSRF cookies seamlessly inside WebView via `sharedCookiesEnabled={true}` without reinventing native auth tokens.
+  - Used `10.0.2.2:5173` as the canonical default for Android emulator host loopback.
+- **Next recommended tasks:**
+  - Test live reporting and photo upload on a physical Android device or emulator running Expo Go.
+  - Staging deployment of the web/API containers (Docker / Render / Railway).
+  - Plan post-hackathon evaluation of native maps and push notifications.
 
 ### 2026-10-17 (Part 5) — OpenStreetMap Zero-Key Tile Fix, Database Seeding (`seed_db.py` / `seed_db.sql`), and Swagger Docs Refresh
 - **Work completed:**

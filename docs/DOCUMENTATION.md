@@ -23,16 +23,22 @@
    - [Progressive Web App (PWA) Architecture](#progressive-web-app-pwa-architecture)
    - [Frontend State, Context & Service Layer](#frontend-state-context--service-layer)
    - [Scroll Animations & Design Tokens](#scroll-animations--design-tokens)
-4. [Backend Architecture & API Reference](#4-backend-architecture--api-reference)
+4. [Mobile Application Architecture (Expo React Native Shell)](#4-mobile-application-architecture-expo-react-native-shell)
+   - [Mobile Architecture & Security Boundary](#mobile-architecture--security-boundary)
+   - [Component Hierarchy & Native Shell Controls](#component-hierarchy--native-shell-controls)
+   - [Hardware Back Button & Navigation Handling](#hardware-back-button--navigation-handling)
+   - [Environment Configuration & Networking (Emulator vs LAN)](#environment-configuration--networking-emulator-vs-lan)
+   - [Automated Mobile Unit Testing (10/10 Passing)](#automated-mobile-unit-testing-1010-passing)
+5. [Backend Architecture & API Reference](#5-backend-architecture--api-reference)
    - [Django Application Architecture](#django-application-architecture)
    - [Accounts App (`apps.accounts`)](#accounts-app-appsaccounts)
    - [Hazards App (`apps.hazards`)](#hazards-app-appshazards)
    - [Moderation App (`apps.moderation`)](#moderation-app-appsmoderation)
    - [Complete API Endpoints Matrix (19 Endpoints)](#complete-api-endpoints-matrix)
    - [OpenAPI 3.0 & Swagger UI Documentation](#openapi-30--swagger-ui-documentation)
-5. [Security, Session Auth & CSRF Protection](#5-security-session-auth--csrf-protection)
-6. [Automated Testing & Quality Assurance (28/28 Passing)](#6-automated-testing--quality-assurance)
-7. [Developer Quick-Start & Team Onboarding](#7-developer-quick-start--team-onboarding)
+6. [Security, Session Auth & CSRF Protection](#6-security-session-auth--csrf-protection)
+7. [Automated Testing & Quality Assurance (34 Backend + 10 Mobile Passing)](#7-automated-testing--quality-assurance-34-backend--10-mobile-passing)
+8. [Developer Quick-Start & Team Onboarding](#8-developer-quick-start--team-onboarding)
 
 ---
 
@@ -242,7 +248,60 @@ RouteX provides a native-like installable experience:
 
 ---
 
-## 4. Backend Architecture & API Reference
+## 4. Mobile Application Architecture (Expo React Native Shell)
+
+RouteX features a dedicated Android mobile container in [`mobile/`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile) built with **React Native and Expo (SDK 57)** in TypeScript, specifically targeted for compatibility with the current Expo Go client available on the Google Play Store. It provides a secure, branded application shell hosting the responsive RouteX web application inside an Android `WebView`.
+
+```text
+┌────────────────────────────────────────────────────────┐
+│           Expo React Native Container (Android)        │
+│  - SafeAreaProvider & StatusBar (Navy #142B3B)         │
+│  - RouteXHeader (Native app bar with reload & back)   │
+│  - Android Hardware BackButton Handler                 │
+│  - Security boundary & Origin Validation               │
+├────────────────────────────────────────────────────────┤
+│                      WebView                           │
+│  - RouteX Responsive Web App (React 18 + Vite)        │
+│  - Leaflet Map + OpenStreetMap zero-key tiles          │
+│  - Cookie sharing & session authentication            │
+│  - Geolocation & camera photo capture                 │
+└────────────────────────────────────────────────────────┘
+                           │ HTTP / JSON
+                           ▼
+             Django REST Framework API (v1)
+                           │ ORM
+                           ▼
+                  PostgreSQL / SQLite
+```
+
+### Mobile Architecture & Security Boundary
+- **Origin Validation ([`urlPolicy.ts`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/navigation/urlPolicy.ts)):** Top-level navigation is strictly limited to the configured `EXPO_PUBLIC_WEB_URL` origin.
+- **External URL Delegation:** External hyperlinks (e.g. OpenStreetMap attribution, licensing pages) are automatically intercepted and delegated to the Android device's default system browser via `Linking.openURL()`.
+- **Scheme Blocking:** Insecure schemes such as `javascript:`, `file:`, `data:`, and `vbscript:` are blocked immediately.
+- **Cookie & Storage Isolation:** Web session cookies (`sessionid`, `csrftoken`) and `localStorage` are shared with the WebView (`sharedCookiesEnabled={true}`), while third-party cookies are disabled (`thirdPartyCookiesEnabled={false}`).
+- **Mixed Content Enforcement:** Insecure HTTP assets inside HTTPS connections are strictly disallowed (`mixedContentMode="never"`).
+
+### Component Hierarchy & Native Shell Controls
+- **[`App.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/App.tsx):** Root coordinator rendering `SafeAreaProvider`, `StatusBar style="light"`, and switching between configuration diagnostics and the active webview.
+- **[`RouteXHeader.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/components/RouteXHeader.tsx):** Branded top bar featuring RouteX emblem, product name, "Know the Road Ahead." tagline, web navigation back action, and instant page refresh trigger.
+- **[`RouteXWebView.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/components/RouteXWebView.tsx):** Encapsulated WebView supporting Android geolocation (`geolocationEnabled={true}`), HTML5 file inputs (`<input type="file">`), error recovery boundaries, and React 19 type interoperability.
+- **[`LoadingScreen.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/components/LoadingScreen.tsx):** Accessible RouteX splash screen rendered during initial network connection.
+- **[`ErrorScreen.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/components/ErrorScreen.tsx):** Recoverable error screen with network diagnostics (host loopback tips for `10.0.2.2` vs LAN IP) and one-tap Retry.
+- **[`ConfigMissingScreen.tsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/mobile/src/components/ConfigMissingScreen.tsx):** Step-by-step setup guide shown if `EXPO_PUBLIC_WEB_URL` is omitted or malformed.
+
+### Hardware Back Button & Navigation Handling
+- If the user has navigated across pages in the RouteX web application (`canGoBack === true`), pressing the physical Android back button steps back through web history via `webViewRef.current.goBack()`.
+- If the user is at the root homepage (`canGoBack === false`), an exit confirmation modal prevents accidental application exit.
+
+### Environment Configuration & Networking (Emulator vs LAN)
+The mobile shell reads `EXPO_PUBLIC_WEB_URL` from `mobile/.env`:
+- **Android Studio Emulator:** Set `EXPO_PUBLIC_WEB_URL=http://10.0.2.2:5173` (connecting to host machine).
+- **Physical Android Phone:** Set `EXPO_PUBLIC_WEB_URL=http://<YOUR_LAN_IP>:5173` (e.g. `http://192.168.0.178:5173`).
+- **Production / Staging:** Set `EXPO_PUBLIC_WEB_URL=https://routex.app`.
+
+---
+
+## 5. Backend Architecture & API Reference
 
 ### Django Apps
 - **`apps.accounts`**: Custom `UserProfile` with `role` choices (`citizen`, `moderator`, `admin`), `PlatformSettings` singleton, `SystemAuditLog`, session auth views, and `views_admin.py`.
@@ -282,59 +341,67 @@ RouteX provides a native-like installable experience:
 
 ---
 
-## 5. Security, Session Auth & CSRF Protection
+## 6. Security, Session Auth & CSRF Protection
 
 - **Cookie Security:** Uses Django's secure database-backed session engine (`django.contrib.sessions`).
 - **CSRF Token Injection:** All non-GET requests require valid `X-CSRFToken` header matching the cookie.
 - **Rate Throttling:** Anonymous login endpoints are throttled at 10 requests/minute per IP; registration at 5 requests/hour.
 - **Pillow Image Sanitization:** Uploaded photos are inspected to ensure valid image headers, non-executable content, and size under configured MB limit.
+- **Mobile Origin Allowlist:** The mobile WebView enforces strict same-origin navigation, redirecting foreign origins to the external system browser and blocking unsafe schemes (`javascript:`, `file:`, `data:`).
 
 ---
 
-## 6. Automated Testing & Quality Assurance
+## 7. Automated Testing & Quality Assurance (34 Backend + 10 Mobile Passing)
 
-All **28 automated unit and integration tests** pass with 100% success rate in under 1 second:
-
+### Backend Test Suite (34/34 Passing in 1.3s)
 ```powershell
 python backend/manage.py test apps
 ```
 
 ```text
-Found 28 test(s).
+Found 34 test(s).
 Creating test database for alias 'default'...
 System check identified no issues (0 silenced).
-............................
+..................................
 ----------------------------------------------------------------------
-Ran 28 tests in 0.773s
+Ran 34 tests in 1.327s
 
 OK
 Destroying test database for alias 'default'...
 ```
 
-### Test Coverage Highlights:
-- **Authentication & Validation:** Valid registration, duplicate email rejection, weak password rejection, login rate limiting, session persistence.
-- **Hazard Core:** Paginated listings, category filtering, bounding box queries, coordinate boundary checks (-90..90, -180..180), Pillow image uploads, confirmation uniqueness, flag creation.
-- **Moderator Security:** Enforces 403 Forbidden for regular citizens; verifies staff/moderator review permissions, decision actions, and reason requirements.
-- **Role Permissions & Admin Security:**
-  - `test_anonymous_cannot_access_admin_stats`: Unauthenticated requests receive 401/403.
-  - `test_citizen_forbidden_from_admin_stats`: Regular citizens receive 403 Forbidden.
-  - `test_moderator_forbidden_from_admin_stats`: Moderators receive 403 Forbidden.
-  - `test_admin_can_access_admin_stats`: Administrators receive 200 OK.
-  - `test_admin_can_list_and_search_users`: Verifies user filtering and counts.
-  - `test_admin_can_promote_citizen_to_moderator`: Role promotion updates `UserProfile` and logs to `SystemAuditLog`.
-  - `test_admin_cannot_demote_themselves`: Rejects self-demotion attempts.
-  - `test_admin_can_update_platform_settings`: Live mutation of operational thresholds.
-  - `test_citizen_can_get_dashboard_summary`: Personal dashboard aggregate calculations.
-  - `test_citizen_can_update_profile`: Display name and email mutations.
-  - `test_moderator_can_access_moderation_stats`: Queue metrics access.
+### Mobile Test Suite (10/10 Passing)
+```powershell
+npm --prefix mobile test
+npm --prefix mobile run type-check
+```
+
+```text
+--- Running RouteX Mobile Unit Tests ---
+✓ Test 1 Passed: Empty URL handled safely
+✓ Test 2 Passed: Non-HTTP/HTTPS protocol rejected
+✓ Test 3 Passed: Valid URL parsed and normalized
+✓ Test 4 Passed: RouteX internal origin allowed
+✓ Test 5 Passed: about:blank initialization allowed
+✓ Test 6 Passed: javascript: scheme blocked
+✓ Test 7 Passed: file: scheme blocked
+✓ Test 8 Passed: tel: scheme delegated externally
+✓ Test 9 Passed: External links redirected to system browser
+✓ Test 10 Passed: Malformed URLs rejected
+
+All 10 RouteX Mobile Tests Passed Successfully! (10/10)
+```
 
 ---
 
-## 7. Developer Quick-Start & Team Onboarding
+## 8. Developer Quick-Start & Team Onboarding
 
 ### One-Click Launchers (Windows)
 - [`run_all.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_all.bat) — Starts backend (`http://127.0.0.1:8000/`) and frontend (`http://localhost:5173/`).
-- [`test_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/test_backend.bat) — Runs the full 28-test test suite.
+- [`run_mobile.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_mobile.bat) — Starts the Expo mobile development server with auto-configured `.env`.
+- [`run_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_backend.bat) — Starts Django server with migration and database seeding checks.
+- [`run_frontend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_frontend.bat) — Starts Vite development server.
+- [`test_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/test_backend.bat) — Runs the full automated backend test suite.
 
 ### Database Seeding & Demo Credentials
 The database can be instantly seeded at any time using either Python or pure SQL:
@@ -353,9 +420,9 @@ The database can be instantly seeded at any time using either Python or pure SQL
 - **Zero API Keys:** Requires no third-party API keys or accounts (avoiding CARTO's watermarked tier).
 - **Dark Theme:** Applies CSS filter on `.dark .leaflet-tile-pane` to gracefully invert street tiles into dark navy/slate while preserving 100% full-color marker pins and popups.
 
-### Manual Setup
+### Manual Setup Commands
 ```powershell
-# Backend
+# 1. Backend
 .\backend\venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
 python backend/manage.py migrate
@@ -363,9 +430,16 @@ python seed_db.py
 python backend/manage.py test apps
 python backend/manage.py runserver 127.0.0.1:8000
 
-# Frontend
+# 2. Frontend
 cd frontend
 npm install
 npm run build
 npm run dev
+
+# 3. Mobile (Expo React Native)
+cd ..\mobile
+npm install
+npm test
+npm run type-check
+npm start
 ```

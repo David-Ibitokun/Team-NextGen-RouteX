@@ -232,7 +232,7 @@ export function AppHeader({ onReportClick }) {
 
           {/* User Auth Controls */}
           {user ? (
-            <div className="relative">
+            <div className="relative hidden sm:block">
               <button
                 type="button"
                 onClick={() => setUserDropdownOpen((prev) => !prev)}
@@ -334,8 +334,9 @@ export function AppHeader({ onReportClick }) {
             onClick={handleReport}
             className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold text-white bg-[#087F8C] hover:bg-[#0aa3b3] rounded-md shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-teal-400"
           >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Report a Hazard</span>
+            <PlusCircle className="hidden sm:inline-flex w-3.5 h-3.5" />
+            <span className="sm:hidden">Report</span>
+            <span className="hidden sm:inline">Report a Hazard</span>
           </button>
 
           {/* Mobile Menu Toggle Button */}

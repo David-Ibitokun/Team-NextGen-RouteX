@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "RouteX",
+    "slug": "routex",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#142B3B",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.routex.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "RouteX uses your location to place and view nearby road hazard reports accurately.",
+        "NSCameraUsageDescription": "RouteX uses the camera to allow capturing photographic evidence of road hazards.",
+        "NSPhotoLibraryUsageDescription": "RouteX uses your photo library to attach photos to road hazard reports."
+      }
+    },
+    "android": {
+      "package": "org.routex.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#142B3B",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
