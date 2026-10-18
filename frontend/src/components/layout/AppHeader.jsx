@@ -12,11 +12,12 @@ import {
   ShieldAlert,
   User as UserIcon,
   LogOut,
-  FolderKanban,
   CheckCircle2,
   Sliders,
   Download,
   LayoutDashboard,
+  CircleHelp,
+  Info,
 } from "lucide-react";
 import { RouteXLogo } from "../common/RouteXLogo";
 import { useTheme } from "../../context/ThemeContext";
@@ -111,12 +112,6 @@ export function AppHeader({ onReportClick }) {
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden lg:flex items-center gap-1 text-xs font-medium text-slate-300">
             <a
-              href="/#how-it-works"
-              className="hover:text-white transition-colors py-1.5 px-2 rounded-md hover:bg-slate-800/40"
-            >
-              How it works
-            </a>
-            <a
               href="/#features"
               className="hover:text-white transition-colors py-1.5 px-2 rounded-md hover:bg-slate-800/40"
             >
@@ -127,6 +122,18 @@ export function AppHeader({ onReportClick }) {
               className="hover:text-white transition-colors py-1.5 px-2 rounded-md hover:bg-slate-800/40"
             >
               Safety & Trust
+            </a>
+            <a
+              href="/#about"
+              className="hover:text-white transition-colors py-1.5 px-2 rounded-md hover:bg-slate-800/40"
+            >
+              About us
+            </a>
+            <a
+              href="/#how-to-use"
+              className="hover:text-white transition-colors py-1.5 px-2 rounded-md hover:bg-slate-800/40"
+            >
+              How to use
             </a>
             <Link
               to="/map"
@@ -372,14 +379,6 @@ export function AppHeader({ onReportClick }) {
             )}
 
             <a
-              href="/#how-it-works"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
-            >
-              <FolderKanban className="w-4 h-4 text-slate-400" />
-              How it works
-            </a>
-            <a
               href="/#features"
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
@@ -394,6 +393,22 @@ export function AppHeader({ onReportClick }) {
             >
               <ShieldAlert className="w-4 h-4 text-slate-400" />
               Safety & Trust
+            </a>
+            <a
+              href="/#about"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
+            >
+              <Info className="w-4 h-4 text-slate-400" />
+              About us
+            </a>
+            <a
+              href="/#how-to-use"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
+            >
+              <CircleHelp className="w-4 h-4 text-slate-400" />
+              How to use
             </a>
             
             <Link

@@ -862,7 +862,71 @@ export function LandingPage() {
         </section>
 
         {/* ========================================================= */}
-        {/* 7. FAQ ACCORDION */}
+        {/* 7. ABOUT ROUTEX AND HOW TO USE */}
+        {/* ========================================================= */}
+        <section id="about" className="py-16 lg:py-24 bg-white dark:bg-[#101F2B] text-left border-b border-slate-200 dark:border-slate-800">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <RevealOnScroll direction="up" delay={50}>
+              <div className="max-w-2xl mb-10">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#087F8C] dark:text-teal-400">About RouteX</span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142B3B] dark:text-white mt-1">A clearer view of the roads we share.</h2>
+                <p className="text-sm text-[#667784] dark:text-slate-300 mt-2 leading-relaxed">RouteX is a community-powered road awareness platform for commuters, drivers, cyclists, and pedestrians who want better information before and during a journey.</p>
+              </div>
+            </RevealOnScroll>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {[
+                [Users, "Community knowledge", "Share timely, local observations with the people who use the same roads."],
+                [ShieldCheck, "Clear context", "See timestamps, freshness, and confirmations so you can judge a report for yourself."],
+                [MapPin, "Practical awareness", "Turn scattered observations into a useful view of the roads ahead."],
+              ].map(([Icon, title, text], index) => (
+                <RevealOnScroll key={title} direction="up" delay={100 + index * 100}>
+                  <div className="h-full p-5 rounded-xl bg-[#F7F9FA] dark:bg-[#142533] border border-slate-200 dark:border-slate-800">
+                    <Icon className="w-5 h-5 text-[#087F8C] dark:text-teal-300 mb-3" />
+                    <h3 className="text-sm font-bold text-[#142B3B] dark:text-white">{title}</h3>
+                    <p className="text-xs text-[#667784] dark:text-slate-300 mt-2 leading-relaxed">{text}</p>
+                  </div>
+                </RevealOnScroll>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="how-to-use" className="py-16 lg:py-24 bg-[#F7F9FA] dark:bg-[#0B161E] text-left">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <RevealOnScroll direction="up" delay={50}>
+              <div className="max-w-2xl mb-10">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#087F8C] dark:text-teal-400">How to use RouteX</span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142B3B] dark:text-white mt-1">From road observation to useful update.</h2>
+                <p className="text-sm text-[#667784] dark:text-slate-300 mt-2 leading-relaxed">Check the map, understand how fresh a report is, and contribute a careful update when it is safe to do so.</p>
+              </div>
+            </RevealOnScroll>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                ["1", "Explore", "Browse the map and filter reports by category or status."],
+                ["2", "Check details", "Review the location, description, photo, timestamp, and confirmation activity."],
+                ["3", "Share safely", "Sign in, place a pin, choose a category, and describe what you see."],
+                ["4", "Keep it current", "Confirm a listed hazard when you can safely verify that it is still present."],
+              ].map(([number, title, text], index) => (
+                <RevealOnScroll key={title} direction="up" delay={100 + index * 80}>
+                  <div className="flex items-start gap-4 p-5 rounded-xl bg-white dark:bg-[#142533] border border-slate-200 dark:border-slate-800">
+                    <div className="w-8 h-8 rounded-full bg-[#087F8C] text-white flex items-center justify-center text-xs font-bold shrink-0">{number}</div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[#142B3B] dark:text-white">{title}</h3>
+                      <p className="text-xs text-[#667784] dark:text-slate-300 mt-1.5 leading-relaxed">{text}</p>
+                    </div>
+                  </div>
+                </RevealOnScroll>
+              ))}
+            </div>
+            <div className="mt-6 flex items-start gap-3 text-xs text-[#667784] dark:text-slate-400">
+              <Info className="w-4 h-4 shrink-0 text-amber-500" />
+              <p>Never browse or report while driving. Pull over safely first, and only take photos when it is safe to do so.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================= */}
+        {/* 8. FAQ ACCORDION */}
         {/* ========================================================= */}
         <section id="faq" className="py-16 lg:py-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-left">
           <RevealOnScroll direction="up" delay={50}>

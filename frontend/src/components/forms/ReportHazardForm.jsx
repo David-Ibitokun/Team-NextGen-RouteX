@@ -143,6 +143,12 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
     if (description.length > 1000) {
       errs.description = "Description cannot exceed 1000 characters.";
     }
+    if (!locationLabel.trim() || locationLabel.trim().length < 3) {
+      errs.location_label = "Please provide the road or landmark name (minimum 3 characters).";
+    }
+    if (locationLabel.trim().length > 150) {
+      errs.location_label = "Road or landmark name cannot exceed 150 characters.";
+    }
     if (!latitude || !longitude) {
       errs.coordinates = "Please tap the map to place the hazard pin.";
     }
@@ -390,21 +396,32 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
 
         {/* Landmark / Street Name */}
         <div className="space-y-1.5">
-          <label
-            htmlFor="locationLabel"
-            className="block text-xs font-semibold text-[#142B3B] dark:text-slate-200"
-          >
-            Street name or landmark{" "}
-            <span className="text-xs font-normal text-[#667784] dark:text-slate-400">
-              (optional)
+          <div className="flex justify-between items-center">
+            <label
+              htmlFor="locationLabel"
+              className="block text-xs font-semibold text-[#142B3B] dark:text-slate-200"
+            >
+              Road or landmark name <span className="text-[#D64545]">*</span>
+            </label>
+            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+              Compulsory
             </span>
-          </label>
+          </div>
+          <p className="text-[11px] text-[#667784] dark:text-slate-400">
+            Crucial for unnamed roads on the map: specify street name, nearest junction, or notable landmark.
+          </p>
           <input
             id="locationLabel"
             type="text"
+            required
             value={locationLabel}
-            onChange={(e) => setLocationLabel(e.target.value)}
-            placeholder="e.g. Lekki-Epe Expressway by Jakande Roundabout"
+            onChange={(e) => {
+              setLocationLabel(e.target.value);
+              if (errors.location_label) {
+                setErrors((prev) => ({ ...prev, location_label: null }));
+              }
+            }}
+            placeholder="e.g. Apatira Street by Market / Lekki-Epe by Jakande"
             maxLength={150}
             className="w-full text-xs p-2.5 bg-[#F7F9FA] dark:bg-[#1B3142] border border-[#DCE4E8] dark:border-slate-700 text-[#142B3B] dark:text-slate-100 rounded-lg focus:outline-none focus:border-[#087F8C] focus:bg-white dark:focus:bg-[#152735]"
           />
