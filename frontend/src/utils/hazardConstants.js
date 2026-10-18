@@ -74,6 +74,6 @@ export function getStatusBadgeStyle(status) {
       return "bg-[#D64545]/15 text-[#D64545] border-[#D64545]/30";
     case "reported":
     default:
-      return "bg-[#667784]/15 text-[#142B3B] border-[#667784]/30";
+      return "bg-[#667784]/15 text-[#142B3B] dark:text-slate-200 border-[#667784]/30";
   }
 }
