@@ -25,6 +25,8 @@ import {
   LogOut,
   UserCircle,
   CheckCircle2,
+  Info,
+  CircleHelp,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -41,6 +43,8 @@ export interface AppHeaderNativeProps {
   unreadNotificationsCount?: number;
   onOpenReport?: () => void;
   onOpenMap?: () => void;
+  onOpenAbout?: () => void;
+  onOpenHowToUse?: () => void;
 }
 
 export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
@@ -53,6 +57,8 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
   unreadNotificationsCount = 0,
   onOpenReport,
   onOpenMap,
+  onOpenAbout,
+  onOpenHowToUse,
 }) => {
   const { isDark, toggleTheme, theme } = useTheme();
   const { user, isAuthenticated, isAdmin, isModerator, logout } = useAuth();
@@ -92,6 +98,11 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
     if (onOpenMap) {
       onOpenMap();
     }
+  };
+
+  const handleInfoPress = (handler?: () => void) => {
+    closeMobileMenu();
+    handler?.();
   };
 
   const handleAuthPress = (mode: 'login' | 'register' = 'login') => {
@@ -276,6 +287,16 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
                   </Text>
                 </TouchableOpacity>
               )}
+
+              <TouchableOpacity style={styles.navItem} onPress={() => handleInfoPress(onOpenAbout)} activeOpacity={0.7}>
+                <Info size={18} color="#E2E8F0" />
+                <Text style={[styles.navItemText, { color: '#E2E8F0' }]}>About Us</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.navItem} onPress={() => handleInfoPress(onOpenHowToUse)} activeOpacity={0.7}>
+                <CircleHelp size={18} color="#2DD4BF" />
+                <Text style={[styles.navItemText, { color: '#2DD4BF' }]}>How to Use</Text>
+              </TouchableOpacity>
 
               {/* Refresh Feed */}
               {onRefresh && (

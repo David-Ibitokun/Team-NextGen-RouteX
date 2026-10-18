@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Image,
   Alert,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +29,7 @@ import {
   Sliders,
   Shield,
   X,
+  MapPin,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../theme/ThemeContext';
@@ -74,10 +76,32 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
   const [lngInput, setLngInput] = useState('3.3958');
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoName, setPhotoName] = useState<string | null>(null);
+  const [isMapCollapsed, setIsMapCollapsed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const isKeyboardVisible = keyboardHeight > 0;
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const resetForm = () => {
     setCategory('flooding');
@@ -90,7 +114,9 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
     setActiveCorridor(null);
     setShowCoordinateInputs(false);
     setPhotoUri(null);
+    setPhotoBase64(null);
     setPhotoName(null);
+    setIsMapCollapsed(false);
     setServerError('');
     setIsSuccess(false);
   };
@@ -133,11 +159,13 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
           }
           const result = await ImagePicker.launchCameraAsync({
             allowsEditing: true,
-            quality: 0.8,
+            quality: 0.7,
+            base64: true,
           });
           if (!result.canceled && result.assets?.[0]?.uri) {
             setPhotoUri(result.assets[0].uri);
-            setPhotoName('hazard_capture.webp');
+            setPhotoBase64(result.assets[0].base64 ? `data:image/jpeg;base64,${result.assets[0].base64}` : null);
+            setPhotoName('hazard_capture.jpg');
           }
         },
       },
@@ -152,12 +180,16 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
           const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsEditing: true,
-            quality: 0.8,
+            quality: 0.7,
+            base64: true,
           });
           if (!result.canceled && result.assets?.[0]?.uri) {
             setPhotoUri(result.assets[0].uri);
-            const name = result.assets[0].fileName || 'hazard_evidence.webp';
+            const name = result.assets[0].fileName || 'hazard_evidence.jpg';
             setPhotoName(name);
+            const ext = name.split('.').pop()?.toLowerCase() || 'jpg';
+            const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+            setPhotoBase64(result.assets[0].base64 ? `data:${mime};base64,${result.assets[0].base64}` : null);
           }
         },
       },
@@ -167,11 +199,16 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
 
   const handleRemovePhoto = () => {
     setPhotoUri(null);
+    setPhotoBase64(null);
     setPhotoName(null);
   };
 
   const handleSubmit = async () => {
     setServerError('');
+    if (!locationName.trim() || locationName.trim().length < 3) {
+      setServerError('Please enter the road or landmark name (minimum 3 characters). This is compulsory for roads not named on the map.');
+      return;
+    }
     if (!description.trim() || description.trim().length < 5) {
       setServerError('Please describe what road condition commuters should avoid (minimum 5 characters).');
       return;
@@ -180,7 +217,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
     setSubmitting(true);
 
     try {
-      const submittedLocation = locationName.trim() || 'Reported Location';
+      const submittedLocation = locationName.trim();
       await submitHazard({
         category,
         description: description.trim(),
@@ -188,6 +225,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
         latitude,
         longitude,
         photoUri: photoUri || undefined,
+        photoBase64: photoBase64 || undefined,
       });
 
       // Dispatch local notification
@@ -199,10 +237,16 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
         onSuccess();
       }, 1400);
     } catch (err: any) {
+      console.error('[RouteX] Submission failed:', err);
       if (err?.data?.detail) {
         setServerError(String(err.data.detail));
-      } else if (err?.data?.description) {
-        setServerError(Array.isArray(err.data.description) ? err.data.description[0] : String(err.data.description));
+      } else if (err?.data && typeof err.data === 'object') {
+        const errorMsg = Object.entries(err.data)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
+          .join(' | ');
+        setServerError(errorMsg || 'Please correct the highlighted fields and try submitting again.');
+      } else if (err?.message) {
+        setServerError(err.message);
       } else {
         setServerError('We could not save the report right now. Please check your network and try again.');
       }
@@ -308,12 +352,13 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
       ) : (
         <>
           <ScrollView
+            ref={scrollViewRef}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingBottom: insets.bottom + 90 },
+              { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 80 : Math.max(insets.bottom, 24) + 32 },
             ]}
             keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
           >
             {/* Server Error Banner */}
@@ -376,130 +421,172 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                 <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
                   Location on map <Text style={{ color: '#D64545' }}>*</Text>
                 </Text>
-                <Text style={[styles.coordBadge, { color: theme.teal }]}>
-                  {latitude.toFixed(4)}, {longitude.toFixed(4)}
-                </Text>
-              </View>
-
-              <LocationPickerMapNative
-                latitude={latitude}
-                longitude={longitude}
-                onLocationChange={handleLocationChange}
-                height={200}
-              />
-
-              {/* Preset Corridors Chips */}
-              <View style={styles.corridorWrap}>
-                <Text style={[styles.subLabel, { color: theme.textSecondary }]}>
-                  Major Lagos Corridors:
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
-                  {PRESET_CORRIDORS.map((corridor) => {
-                    const isSelected = activeCorridor === corridor.name;
-                    return (
-                      <TouchableOpacity
-                        key={corridor.name}
-                        style={[
-                          styles.chip,
-                          {
-                            backgroundColor: isSelected ? theme.teal : theme.surfaceSubtle,
-                            borderColor: isSelected ? theme.teal : theme.border,
-                          },
-                        ]}
-                        onPress={() => handleSelectCorridor(corridor)}
-                        activeOpacity={0.7}
-                      >
-                        <Text
-                          style={[
-                            styles.chipText,
-                            { color: isSelected ? '#FFFFFF' : theme.textPrimary },
-                          ]}
-                        >
-                          {corridor.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-
-              {/* Manual Coordinates Toggle */}
-              <TouchableOpacity
-                onPress={() => setShowCoordinateInputs((prev) => !prev)}
-                style={styles.toggleCoordsRow}
-                activeOpacity={0.7}
-              >
-                <Sliders size={13} color={theme.teal} />
-                <Text style={[styles.toggleCoordsText, { color: theme.teal }]}>
-                  {showCoordinateInputs ? 'Hide Coordinate Inputs' : 'Input Coordinates Manually'}
-                </Text>
-              </TouchableOpacity>
-
-              {showCoordinateInputs && (
-                <View
-                  style={[
-                    styles.coordsBox,
-                    { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
-                  ]}
-                >
-                  <View style={styles.coordInputCol}>
-                    <Text style={[styles.coordInputLabel, { color: theme.textMuted }]}>
-                      Latitude
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.coordTextInput,
-                        {
-                          backgroundColor: theme.surface,
-                          borderColor: theme.border,
-                          color: theme.textPrimary,
-                        },
-                      ]}
-                      keyboardType="numeric"
-                      value={latInput}
-                      onChangeText={setLatInput}
-                      placeholder="e.g. 6.4531"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                  </View>
-
-                  <View style={styles.coordInputCol}>
-                    <Text style={[styles.coordInputLabel, { color: theme.textMuted }]}>
-                      Longitude
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.coordTextInput,
-                        {
-                          backgroundColor: theme.surface,
-                          borderColor: theme.border,
-                          color: theme.textPrimary,
-                        },
-                      ]}
-                      keyboardType="numeric"
-                      value={lngInput}
-                      onChangeText={setLngInput}
-                      placeholder="e.g. 3.3958"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                  </View>
-
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[styles.coordBadge, { color: theme.teal }]}>
+                    {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                  </Text>
                   <TouchableOpacity
-                    style={[styles.applyCoordBtn, { backgroundColor: theme.teal }]}
-                    onPress={handleManualCoordApply}
+                    onPress={() => setIsMapCollapsed((prev) => !prev)}
+                    style={[
+                      styles.collapseMapToggle,
+                      { borderColor: theme.border, backgroundColor: theme.surfaceSubtle },
+                    ]}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.applyCoordBtnText}>Apply</Text>
+                    <Text style={[styles.collapseMapToggleText, { color: theme.teal }]}>
+                      {isMapCollapsed ? 'Show map' : 'Collapse'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+
+              {!isMapCollapsed ? (
+                <>
+                  <LocationPickerMapNative
+                    latitude={latitude}
+                    longitude={longitude}
+                    onLocationChange={handleLocationChange}
+                    height={180}
+                  />
+
+                  {/* Preset Corridors Chips */}
+                  <View style={styles.corridorWrap}>
+                    <Text style={[styles.subLabel, { color: theme.textSecondary }]}>
+                      Major Lagos Corridors:
+                    </Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+                      {PRESET_CORRIDORS.map((corridor) => {
+                        const isSelected = activeCorridor === corridor.name;
+                        return (
+                          <TouchableOpacity
+                            key={corridor.name}
+                            style={[
+                              styles.chip,
+                              {
+                                backgroundColor: isSelected ? theme.teal : theme.surfaceSubtle,
+                                borderColor: isSelected ? theme.teal : theme.border,
+                              },
+                            ]}
+                            onPress={() => handleSelectCorridor(corridor)}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.chipText,
+                                { color: isSelected ? '#FFFFFF' : theme.textPrimary },
+                              ]}
+                            >
+                              {corridor.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+
+                  {/* Manual Coordinates Toggle */}
+                  <TouchableOpacity
+                    onPress={() => setShowCoordinateInputs((prev) => !prev)}
+                    style={styles.toggleCoordsRow}
+                    activeOpacity={0.7}
+                  >
+                    <Sliders size={13} color={theme.teal} />
+                    <Text style={[styles.toggleCoordsText, { color: theme.teal }]}>
+                      {showCoordinateInputs ? 'Hide Coordinate Inputs' : 'Input Coordinates Manually'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showCoordinateInputs && (
+                    <View
+                      style={[
+                        styles.coordsBox,
+                        { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
+                      ]}
+                    >
+                      <View style={styles.coordInputCol}>
+                        <Text style={[styles.coordInputLabel, { color: theme.textMuted }]}>
+                          Latitude
+                        </Text>
+                        <TextInput
+                          style={[
+                            styles.coordTextInput,
+                            {
+                              backgroundColor: theme.surface,
+                              borderColor: theme.border,
+                              color: theme.textPrimary,
+                            },
+                          ]}
+                          keyboardType="numeric"
+                          value={latInput}
+                          onChangeText={setLatInput}
+                          placeholder="e.g. 6.4531"
+                          placeholderTextColor={theme.textMuted}
+                        />
+                      </View>
+
+                      <View style={styles.coordInputCol}>
+                        <Text style={[styles.coordInputLabel, { color: theme.textMuted }]}>
+                          Longitude
+                        </Text>
+                        <TextInput
+                          style={[
+                            styles.coordTextInput,
+                            {
+                              backgroundColor: theme.surface,
+                              borderColor: theme.border,
+                              color: theme.textPrimary,
+                            },
+                          ]}
+                          keyboardType="numeric"
+                          value={lngInput}
+                          onChangeText={setLngInput}
+                          placeholder="e.g. 3.3958"
+                          placeholderTextColor={theme.textMuted}
+                        />
+                      </View>
+
+                      <TouchableOpacity
+                        style={[styles.applyCoordBtn, { backgroundColor: theme.teal }]}
+                        onPress={handleManualCoordApply}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.applyCoordBtnText}>Apply</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setIsMapCollapsed(false)}
+                  style={[
+                    styles.collapsedMapBanner,
+                    { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <MapPin size={16} color={theme.teal} />
+                  <Text style={[styles.collapsedMapText, { color: theme.textPrimary }]}>
+                    Pin set at ({latitude.toFixed(4)}, {longitude.toFixed(4)})
+                  </Text>
+                  <Text style={[styles.collapsedMapAction, { color: theme.teal }]}>
+                    Tap to expand map
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
 
             {/* 3. Location Label / Landmark */}
             <View style={styles.section}>
-              <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
-                Road or landmark name{' '}
-                <Text style={{ fontWeight: '400', color: theme.textMuted }}>(optional)</Text>
+              <View style={styles.labelRow}>
+                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
+                  Road or landmark name <Text style={{ color: '#D64545' }}>*</Text>
+                </Text>
+                <Text style={[styles.charCount, { color: theme.teal, fontWeight: '700' }]}>
+                  Compulsory
+                </Text>
+              </View>
+              <Text style={[styles.fieldHint, { color: theme.textMuted }]}>
+                Important for roads without names on the map: specify street name, nearest junction, or prominent landmark.
               </Text>
               <TextInput
                 style={[
@@ -510,11 +597,17 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                     color: theme.textPrimary,
                   },
                 ]}
-                placeholder="e.g. Lekki-Epe Expressway by Jakande Roundabout"
+                placeholder="e.g. Apatira Street by Market / Lekki-Epe near Jakande"
                 placeholderTextColor={theme.textMuted}
                 maxLength={150}
                 value={locationName}
                 onChangeText={setLocationName}
+                onFocus={() => {
+                  setIsMapCollapsed(true);
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({ y: 80, animated: true });
+                  }, 120);
+                }}
               />
             </View>
 
@@ -544,6 +637,12 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                 maxLength={1000}
                 value={description}
                 onChangeText={setDescription}
+                onFocus={() => {
+                  setIsMapCollapsed(true);
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({ y: 150, animated: true });
+                  }, 120);
+                }}
               />
             </View>
 
@@ -620,50 +719,41 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* Inline Action Buttons at bottom of form */}
+            <View style={styles.inlineActionRow}>
+              <TouchableOpacity
+                style={[
+                  styles.cancelBtn,
+                  { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
+                ]}
+                onPress={onCancel}
+                disabled={submitting}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.cancelBtnText, { color: theme.textPrimary }]}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.submitBtn,
+                  { backgroundColor: theme.teal, opacity: submitting ? 0.7 : 1 },
+                ]}
+                onPress={handleSubmit}
+                disabled={submitting}
+                activeOpacity={0.8}
+              >
+                {submitting ? (
+                  <View style={styles.submittingRow}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.submitBtnText}>Submitting report...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.submitBtnText}>Submit report</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </ScrollView>
-
-          {/* Fixed Bottom Action Bar shifted into system navigation bar */}
-          <View
-            style={[
-              styles.bottomBar,
-              {
-                backgroundColor: theme.surface,
-                borderTopColor: theme.borderSubtle,
-                paddingBottom: Math.max(insets.bottom, 12),
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.cancelBtn,
-                { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
-              ]}
-              onPress={onCancel}
-              disabled={submitting}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.cancelBtnText, { color: theme.textPrimary }]}>Cancel</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.submitBtn,
-                { backgroundColor: theme.teal, opacity: submitting ? 0.7 : 1 },
-              ]}
-              onPress={handleSubmit}
-              disabled={submitting}
-              activeOpacity={0.8}
-            >
-              {submitting ? (
-                <View style={styles.submittingRow}>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.submitBtnText}>Submitting report...</Text>
-                </View>
-              ) : (
-                <Text style={styles.submitBtnText}>Submit report</Text>
-              )}
-            </TouchableOpacity>
-          </View>
         </>
       )}
     </KeyboardAvoidingView>
@@ -807,6 +897,35 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  collapseMapToggle: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  collapseMapToggleText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  collapsedMapBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 6,
+  },
+  collapsedMapText: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  collapsedMapAction: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   toggleCoordsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -851,6 +970,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+  },
+  fieldHint: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginBottom: 8,
   },
   input: {
     borderWidth: 1,
@@ -962,6 +1086,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  inlineActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+    marginBottom: 16,
   },
   cancelBtn: {
     paddingHorizontal: 20,

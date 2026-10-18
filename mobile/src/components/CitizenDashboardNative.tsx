@@ -53,7 +53,7 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
   onOpenAuth,
 }) => {
   const { isDark, theme } = useTheme();
-  const { user, isAuthenticated, logout, refreshMe } = useAuth();
+  const { user, isAuthenticated, logout, deleteAccount, refreshMe } = useAuth();
   const { width: windowWidth } = useWindowDimensions();
 
   const [activeTab, setActiveTab] = useState<TabType>('reports');
@@ -69,6 +69,7 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState('');
   const [profileError, setProfileError] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -121,6 +122,32 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
     } finally {
       setUpdatingProfile(false);
     }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Permanently delete your RouteX account and profile? This cannot be undone. Your submitted road reports will remain publicly useful without your account attribution.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingAccount(true);
+            setProfileError('');
+            try {
+              await deleteAccount();
+              setActiveTab('reports');
+            } catch (err: any) {
+              setProfileError(err?.message || 'Could not delete your account.');
+            } finally {
+              setDeletingAccount(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const displayedReports = isAuthenticated ? myReports : hazards;
@@ -731,6 +758,18 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
               >
                 <LogOut size={15} color="#DC2626" />
                 <Text style={styles.signOutOutlineText}>Sign Out of RouteX</Text>
+              </TouchableOpacity>
+            )}
+
+            {isAuthenticated && (
+              <TouchableOpacity
+                style={[styles.signOutOutlineBtn, { borderColor: '#B91C1C', marginTop: 10, opacity: deletingAccount ? 0.5 : 1 }]}
+                onPress={handleDeleteAccount}
+                disabled={deletingAccount}
+                activeOpacity={0.8}
+              >
+                {deletingAccount ? <ActivityIndicator size="small" color="#B91C1C" /> : <AlertTriangle size={15} color="#B91C1C" />}
+                <Text style={[styles.signOutOutlineText, { color: '#B91C1C' }]}>{deletingAccount ? 'Deleting Account...' : 'Delete My Account'}</Text>
               </TouchableOpacity>
             )}
           </View>

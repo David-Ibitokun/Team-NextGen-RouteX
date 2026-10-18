@@ -136,6 +136,7 @@ export async function submitHazard(payload: {
   latitude: number;
   longitude: number;
   photoUri?: string;
+  photoBase64?: string;
 }): Promise<HazardItem> {
   const localHazardId = `native-${Date.now()}`;
   const fallbackHazard: HazardItem = {
@@ -158,24 +159,54 @@ export async function submitHazard(payload: {
     await authService.getCsrfToken().catch(() => '');
 
     let data: HazardItem;
+    const formattedLat = Number(Number(payload.latitude).toFixed(6));
+    const formattedLng = Number(Number(payload.longitude).toFixed(6));
 
-    if (payload.photoUri) {
+    if (payload.photoBase64) {
+      // 100% reliable JSON submission with base64 encoded photo
+      data = await apiRequest<HazardItem>('/hazards/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          category: payload.category,
+          location_label: payload.location_name,
+          description: payload.description,
+          latitude: formattedLat,
+          longitude: formattedLng,
+          photo_base64: payload.photoBase64,
+        }),
+        timeoutMs: 20000,
+      });
+    } else if (payload.photoUri) {
       const formData = new FormData();
       formData.append('category', payload.category);
       formData.append('location_label', payload.location_name);
-      formData.append('location_name', payload.location_name);
       formData.append('description', payload.description);
-      formData.append('latitude', String(payload.latitude));
-      formData.append('longitude', String(payload.longitude));
+      formData.append('latitude', String(formattedLat));
+      formData.append('longitude', String(formattedLng));
 
-      const filename = payload.photoUri.split('/').pop() || 'hazard_photo.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const mimeType = match ? `image/${match[1]}` : 'image/jpeg';
-      formData.append('photo', {
-        uri: payload.photoUri,
-        name: filename,
-        type: mimeType,
-      } as any);
+      const filename = payload.photoUri.split('/').pop()?.split('?')[0] || 'hazard_photo.jpg';
+      const ext = filename.split('.').pop()?.toLowerCase();
+      let mimeType = 'image/jpeg';
+      if (ext === 'png') mimeType = 'image/png';
+      else if (ext === 'webp') mimeType = 'image/webp';
+      else if (ext === 'gif') mimeType = 'image/gif';
+
+      try {
+        // Modern Expo / WinterCG fetch expects a standard Blob
+        const photoRes = await fetch(payload.photoUri);
+        const photoBlob = await photoRes.blob();
+        formData.append('photo', photoBlob, filename);
+      } catch (blobErr) {
+        console.warn('[RouteX] Blob conversion error, fallback to legacy part:', blobErr);
+        formData.append('photo', {
+          uri: payload.photoUri,
+          name: filename,
+          type: mimeType,
+        } as any);
+      }
 
       data = await apiRequest<HazardItem>('/hazards/', {
         method: 'POST',
@@ -193,8 +224,8 @@ export async function submitHazard(payload: {
           category: payload.category,
           location_label: payload.location_name,
           description: payload.description,
-          latitude: payload.latitude,
-          longitude: payload.longitude,
+          latitude: formattedLat,
+          longitude: formattedLng,
         }),
         timeoutMs: 12000,
       });
@@ -202,12 +233,8 @@ export async function submitHazard(payload: {
 
     return data;
   } catch (err: any) {
-    // If user is unauthenticated or validation failed, propagate error to UI
-    if (err?.status === 401 || err?.status === 403 || err?.status === 400) {
-      throw err;
-    }
-    // If backend unreachable or offline, save fallback locally for demo
-    return fallbackHazard;
+    console.error('[RouteX] Hazard submission error:', err);
+    throw err;
   }
 }
 

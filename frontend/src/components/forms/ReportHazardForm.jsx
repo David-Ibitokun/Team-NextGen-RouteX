@@ -170,8 +170,8 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
       formData.append("category", category);
       formData.append("location_label", locationLabel.trim());
       formData.append("description", description.trim());
-      formData.append("latitude", latitude.toString());
-      formData.append("longitude", longitude.toString());
+      formData.append("latitude", Number(latitude).toFixed(6));
+      formData.append("longitude", Number(longitude).toFixed(6));
       if (photo) {
         formData.append("photo", photo);
       }

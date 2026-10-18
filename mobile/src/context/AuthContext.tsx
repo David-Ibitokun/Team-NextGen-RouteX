@@ -28,6 +28,7 @@ interface AuthContextValue {
     display_name?: string;
   }) => Promise<RouteXUser>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
   refreshMe: () => Promise<void>;
 }
@@ -92,6 +93,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteAccount = async () => {
+    await authService.deleteAccount();
+    setUser(null);
+  };
+
   const isAuthenticated = Boolean(user);
   const isAdmin = Boolean(user && (user.is_superuser || user.role === 'admin'));
   const isModerator = Boolean(
@@ -111,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         register,
         logout,
+        deleteAccount,
         refreshUser: fetchCurrentUser,
         refreshMe: fetchCurrentUser,
       }}

@@ -11,6 +11,7 @@ const AuthContext = createContext({
   login: async () => {},
   register: async () => {},
   logout: async () => {},
+  deleteAccount: async () => {},
   refreshUser: async () => {},
   refreshMe: async () => {},
 });
@@ -57,6 +58,11 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const deleteAccount = async () => {
+    await authService.deleteAccount();
+    setUser(null);
+  };
+
   const isAuthenticated = Boolean(user);
   const isAdmin = Boolean(user && (user.is_superuser || user.role === "admin"));
   const isModerator = Boolean(
@@ -76,6 +82,7 @@ export function AuthProvider({ children }) {
         login,
         register,
         logout,
+        deleteAccount,
         refreshUser: fetchCurrentUser,
         refreshMe: fetchCurrentUser,
       }}

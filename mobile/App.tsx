@@ -23,6 +23,7 @@ import { AdminDashboardNative } from './src/components/AdminDashboardNative';
 import { ReportScreenNative } from './src/components/ReportScreenNative';
 import { AuthModalNative } from './src/components/AuthModalNative';
 import { NotificationsModalNative } from './src/components/NotificationsModalNative';
+import { InfoScreenNative, InfoScreenType } from './src/components/InfoScreenNative';
 import { HazardListSkeletonNative } from './src/components/HazardSkeletonNative';
 import { ShieldCheck, LayoutDashboard, Shield, Sliders } from 'lucide-react-native';
 import { TouchableOpacity } from 'react-native';
@@ -34,11 +35,13 @@ import {
   notifyHazardConfirmed,
 } from './src/services/notificationService';
 
+type AppView = ActiveTab | InfoScreenType;
+
 function RouteXNativeMain() {
   const { isDark, theme } = useTheme();
   const { isAuthenticated, isModerator, isAdmin } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('list');
+  const [activeTab, setActiveTab] = useState<AppView>('list');
   const [activeDashboard, setActiveDashboard] = useState<'citizen' | 'moderator' | 'admin'>('citizen');
   const [hazards, setHazards] = useState<HazardItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +123,10 @@ function RouteXNativeMain() {
         setShowAuthModal(false);
         return true;
       }
+      if (activeTab === 'about' || activeTab === 'how-to-use') {
+        setActiveTab('list');
+        return true;
+      }
       if (activeTab === 'report') {
         setActiveTab('list');
         return true;
@@ -142,6 +149,15 @@ function RouteXNativeMain() {
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
   };
+
+  if (activeTab === 'about' || activeTab === 'how-to-use') {
+    return (
+      <SafeAreaView style={[styles.root, { backgroundColor: theme.headerBg }]} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle="light-content" backgroundColor={theme.headerBg} hidden={false} translucent={false} />
+        <InfoScreenNative type={activeTab} onBack={() => setActiveTab('list')} />
+      </SafeAreaView>
+    );
+  }
 
   const handleConfirm = async (id: string | number) => {
     // Optimistic UI update
@@ -225,6 +241,8 @@ function RouteXNativeMain() {
         unreadNotificationsCount={unreadNotificationsCount}
         onOpenReport={() => setActiveTab('report')}
         onOpenMap={() => setActiveTab('map')}
+        onOpenAbout={() => setActiveTab('about')}
+        onOpenHowToUse={() => setActiveTab('how-to-use')}
       />
 
       {/* Active Tab View */}
@@ -364,7 +382,7 @@ function RouteXNativeMain() {
       </View>
 
       {/* Bottom Navigation with Center Report FAB */}
-      <MobileBottomNavNative activeTab={activeTab} onTabChange={handleTabChange} />
+      <MobileBottomNavNative activeTab={activeTab as ActiveTab} onTabChange={handleTabChange} />
 
       {/* Authentication Modal */}
       <AuthModalNative

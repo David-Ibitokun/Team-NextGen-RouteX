@@ -208,6 +208,29 @@ def me_view(request):
 
 @extend_schema(
     tags=["auth"],
+    summary="Delete the authenticated user's account",
+    description=(
+        "Permanently deletes the authenticated user's account and profile. "
+        "Public hazard reports remain available, but are no longer attributed to the deleted account."
+    ),
+    responses={204: None, 401: {"description": "Not authenticated"}},
+)
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_account_view(request):
+    """Permanently delete the current user's account and end the session."""
+    user = request.user
+    username = user.username
+    user_id = user.pk
+
+    logout(request)
+    user.delete()
+    logger.info("User account deleted by self-service request: user_id=%s username=%s", user_id, username)
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    tags=["auth"],
     summary="Get the authenticated user's hazard reports",
     description=(
         "Returns all road hazard reports submitted by the currently authenticated user, "

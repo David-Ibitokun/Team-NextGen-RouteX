@@ -32,7 +32,7 @@ import { ErrorState } from "../components/feedback/ErrorState";
 import { EmptyState } from "../components/feedback/EmptyState";
 
 export function CustomerDashboardPage() {
-  const { user, isAuthenticated, loading: authLoading, refreshMe } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, refreshMe, deleteAccount } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("reports"); // "reports" | "impact" | "settings"
@@ -48,6 +48,8 @@ export function CustomerDashboardPage() {
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState("");
   const [profileError, setProfileError] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState("");
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -98,6 +100,23 @@ export function CustomerDashboardPage() {
       setProfileError(msg);
     } finally {
       setUpdatingProfile(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Delete your RouteX account permanently? Your account and profile cannot be recovered.")) {
+      return;
+    }
+
+    try {
+      setDeletingAccount(true);
+      setDeleteAccountError("");
+      await deleteAccount();
+      navigate("/", { replace: true });
+    } catch (err) {
+      setDeleteAccountError(err.response?.data?.detail || "Could not delete your account. Please try again.");
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -520,6 +539,22 @@ export function CustomerDashboardPage() {
                 </button>
               </div>
             </form>
+
+            <div className="mt-8 pt-6 border-t border-red-200 dark:border-red-900/60">
+              <h3 className="text-sm font-bold text-red-700 dark:text-red-300">Delete account</h3>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                Permanently remove your account and profile. Your submitted road reports will remain publicly useful without your account attribution.
+              </p>
+              {deleteAccountError && <p className="mt-3 text-xs text-red-600 dark:text-red-400">{deleteAccountError}</p>}
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deletingAccount}
+                className="mt-4 px-4 py-2.5 rounded-xl font-semibold text-sm text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-50 transition-colors"
+              >
+                {deletingAccount ? "Deleting Account..." : "Delete My Account"}
+              </button>
+            </div>
           </div>
         )}
       </main>

@@ -84,6 +84,15 @@ export const authService = {
   },
 
   /**
+   * Permanently delete the authenticated user's account
+   */
+  async deleteAccount() {
+    await this.getCsrfToken();
+    const response = await apiClient.delete("/auth/me/delete/");
+    return response.data;
+  },
+
+  /**
    * Get currently authenticated user's submitted reports
    */
   async getMyReports() {

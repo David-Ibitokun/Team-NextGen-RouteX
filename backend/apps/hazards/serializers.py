@@ -1,3 +1,6 @@
+import base64
+import uuid
+from django.core.files.base import ContentFile
 from rest_framework import serializers
 from .models import HazardReport, HazardCategory, HazardStatus, Confirmation, HazardFlag
 
@@ -6,6 +9,37 @@ class HazardReportSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     photo_url = serializers.SerializerMethodField()
     freshness = serializers.SerializerMethodField()
+
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            data = data.copy() if hasattr(data, 'copy') else dict(data)
+            # Automatically round GPS coordinates to 6 decimal places
+            if "latitude" in data and data["latitude"] is not None:
+                try:
+                    data["latitude"] = f"{float(data['latitude']):.6f}"
+                except (ValueError, TypeError):
+                    pass
+            if "longitude" in data and data["longitude"] is not None:
+                try:
+                    data["longitude"] = f"{float(data['longitude']):.6f}"
+                except (ValueError, TypeError):
+                    pass
+
+            # Support base64 image strings from mobile and web apps
+            if "photo_base64" in data and data["photo_base64"]:
+                try:
+                    b64_data = data["photo_base64"]
+                    format_prefix, imgstr = b64_data.split(';base64,') if ';base64,' in b64_data else ('', b64_data)
+                    ext = 'jpg'
+                    if 'png' in format_prefix:
+                        ext = 'png'
+                    elif 'webp' in format_prefix:
+                        ext = 'webp'
+                    file_name = f"hazard_{uuid.uuid4().hex[:8]}.{ext}"
+                    data["photo"] = ContentFile(base64.b64decode(imgstr), name=file_name)
+                except Exception:
+                    pass
+        return super().to_internal_value(data)
 
     class Meta:
         model = HazardReport

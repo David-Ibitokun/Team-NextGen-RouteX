@@ -2,7 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HazardItem } from '../constants/hazardTypes';
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
-export const API_BASE_URL = configuredApiUrl ? configuredApiUrl.replace(/\/+$/, '') : '';
+export const API_BASE_URL = configuredApiUrl
+  ? configuredApiUrl.replace(/\/+$/, '')
+  : 'http://192.168.0.141:8000/api/v1';
 
 const STORAGE_KEYS = {
   CSRF_TOKEN: '@routex_csrf_token',
@@ -154,10 +156,21 @@ export async function apiRequest<T = any>(
     }
 
     if (!response.ok) {
-      const errorObj: any = new Error(
-        (typeof responseData === 'object' && (responseData?.detail || responseData?.message)) ||
-        `Request failed with status ${response.status}`
-      );
+      let errorMsg = `Request failed with status ${response.status}`;
+      if (typeof responseData === 'object' && responseData) {
+        if (responseData.detail) {
+          errorMsg = String(responseData.detail);
+        } else if (responseData.message) {
+          errorMsg = String(responseData.message);
+        } else {
+          const fieldMsgs = Object.entries(responseData)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
+            .join(' | ');
+          if (fieldMsgs) errorMsg = fieldMsgs;
+        }
+      }
+      console.warn(`[RouteX] HTTP ${response.status} from ${endpoint}:`, JSON.stringify(responseData));
+      const errorObj: any = new Error(errorMsg);
       errorObj.status = response.status;
       errorObj.data = responseData;
       throw errorObj;
@@ -261,6 +274,19 @@ export const authService = {
     if (data) {
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_USER, JSON.stringify(data));
     }
+    return data;
+  },
+
+  /**
+   * Permanently delete the authenticated user's account
+   */
+  async deleteAccount() {
+    await this.getCsrfToken();
+    const data = await apiRequest('/auth/me/delete/', {
+      method: 'DELETE',
+    });
+    await persistTokens({ sessionId: null, csrfToken: null });
+    await AsyncStorage.removeItem(STORAGE_KEYS.SAVED_USER);
     return data;
   },
 

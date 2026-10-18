@@ -13,6 +13,7 @@ class AuthAPITests(TestCase):
         self.login_url = reverse("auth-login")
         self.logout_url = reverse("auth-logout")
         self.me_url = reverse("auth-me")
+        self.delete_account_url = reverse("auth-delete-account")
         self.csrf_url = reverse("auth-csrf")
 
     def test_registration_succeeds_with_valid_data(self):
@@ -104,3 +105,23 @@ class AuthAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("csrfToken", response.data)
         self.assertTrue(len(response.data["csrfToken"]) > 10)
+
+    def test_authenticated_user_can_delete_own_account(self):
+        user = User.objects.create_user(
+            username="delete-me",
+            email="delete-me@example.com",
+            password="StrongPassword2026!",
+        )
+        UserProfile.objects.create(user=user, display_name="Delete Me")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.delete(self.delete_account_url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(pk=user.pk).exists())
+        self.assertFalse(UserProfile.objects.filter(user_id=user.pk).exists())
+
+    def test_anonymous_user_cannot_delete_account(self):
+        response = self.client.delete(self.delete_account_url)
+
+        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, ActivityIndicator, PermissionsAndroid, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Navigation, MapPin } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -138,30 +138,40 @@ export const LocationPickerMapNative: React.FC<LocationPickerMapNativeProps> = (
 
     window.locateMe = function() {
       if (navigator && navigator.geolocation) {
+        function onLocSuccess(pos) {
+          var lat = pos.coords.latitude;
+          var lng = pos.coords.longitude;
+          marker.setLatLng([lat, lng]);
+          map.panTo([lat, lng]);
+          notifyPosition(lat, lng);
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'GPS_SUCCESS',
+              latitude: lat,
+              longitude: lng
+            }));
+          }
+        }
+
+        // 1. First attempt: High accuracy GPS with 5s timeout
         navigator.geolocation.getCurrentPosition(
-          function(pos) {
-            var lat = pos.coords.latitude;
-            var lng = pos.coords.longitude;
-            marker.setLatLng([lat, lng]);
-            map.panTo([lat, lng]);
-            notifyPosition(lat, lng);
-            if (window.ReactNativeWebView) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'GPS_SUCCESS',
-                latitude: lat,
-                longitude: lng
-              }));
-            }
+          onLocSuccess,
+          function(err1) {
+            // 2. Second attempt: Low accuracy (Wi-Fi / Cell tower) for indoor reliability
+            navigator.geolocation.getCurrentPosition(
+              onLocSuccess,
+              function(err2) {
+                if (window.ReactNativeWebView) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'GPS_ERROR',
+                    message: err2.message || 'Unable to retrieve location'
+                  }));
+                }
+              },
+              { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+            );
           },
-          function(err) {
-            if (window.ReactNativeWebView) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'GPS_ERROR',
-                message: err.message || 'Unable to retrieve location'
-              }));
-            }
-          },
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
         );
       } else if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -206,25 +216,53 @@ export const LocationPickerMapNative: React.FC<LocationPickerMapNativeProps> = (
   };
 
   // Request current GPS location via Leaflet WebView navigator.geolocation
-  const handleGetCurrentLocation = () => {
+  const handleGetCurrentLocation = async () => {
     setLocating(true);
     setLocationStatus('Acquiring location...');
+
+    // On Android, explicitly request runtime permission from OS
+    if (Platform.OS === 'android') {
+      try {
+        const hasPermission = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
+        if (!hasPermission) {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            {
+              title: 'RouteX Location Access',
+              message: 'RouteX needs your location to set the hazard pin accurately on the map.',
+              buttonPositive: 'Allow',
+              buttonNegative: 'Deny',
+            }
+          );
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            setLocationStatus('Location permission not granted. Please select on map.');
+            setLocating(false);
+            setTimeout(() => setLocationStatus(''), 4000);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Location permission request error:', err);
+      }
+    }
 
     if (webViewRef.current) {
       webViewRef.current.injectJavaScript(
         'if (window.locateMe) { window.locateMe(); } true;'
       );
-      // Timeout after 6 seconds if geolocation does not reply
+      // Timeout after 12 seconds if geolocation does not reply
       setTimeout(() => {
         setLocating(current => {
           if (current) {
-            setLocationStatus('Tap map or select a corridor preset below.');
+            setLocationStatus('Tap map or enter coordinates to set location.');
             setTimeout(() => setLocationStatus(''), 4000);
             return false;
           }
           return current;
         });
-      }, 6000);
+      }, 12000);
     } else {
       setLocationStatus('Tap map or enter coordinates to set location.');
       setLocating(false);
@@ -279,7 +317,7 @@ export const LocationPickerMapNative: React.FC<LocationPickerMapNativeProps> = (
         <BaseWebView
           ref={webViewRef}
           originWhitelist={['*']}
-          source={{ html: pickerHtml }}
+          source={{ html: pickerHtml, baseUrl: 'https://routex.app' }}
           style={styles.webView}
           onMessage={handleMessage}
           scrollEnabled={false}
@@ -287,6 +325,13 @@ export const LocationPickerMapNative: React.FC<LocationPickerMapNativeProps> = (
           domStorageEnabled={true}
           cacheEnabled={true}
           geolocationEnabled={true}
+          onGeolocationPermissionsShowPrompt={(event: any) => {
+            if (typeof event?.callback === 'function') {
+              event.callback(event.origin, true, false);
+            } else if (typeof event?.nativeEvent?.callback === 'function') {
+              event.nativeEvent.callback(event.nativeEvent.origin, true, false);
+            }
+          }}
         />
       </View>
     </View>
