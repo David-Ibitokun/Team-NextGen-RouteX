@@ -16,6 +16,8 @@ import {
   RefreshCw,
   Eye,
   Sliders,
+  Search,
+  ArrowUpDown,
 } from "lucide-react";
 import { AppHeader } from "../components/layout/AppHeader";
 import { CategoryBadge } from "../components/hazards/CategoryBadge";
@@ -23,6 +25,7 @@ import { FreshnessBadge } from "../components/hazards/FreshnessBadge";
 import { LoadingState } from "../components/feedback/LoadingState";
 import { ErrorState } from "../components/feedback/ErrorState";
 import { EmptyState } from "../components/feedback/EmptyState";
+import { PaginationBar } from "../components/common/PaginationBar";
 import { moderationService } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
 
@@ -35,7 +38,19 @@ export function ModerationPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Filter States
   const [filterFlaggedOnly, setFilterFlaggedOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [ordering, setOrdering] = useState("-flags_count");
+
   const [selectedReport, setSelectedReport] = useState(null);
 
   // Action modal state
@@ -59,23 +74,40 @@ export function ModerationPage() {
     try {
       setLoading(true);
       setError(null);
-      const params = {};
+      const params = { page, page_size: pageSize };
       if (filterFlaggedOnly) params.flagged_only = true;
+      if (statusFilter && statusFilter !== "all") params.status = statusFilter;
+      if (categoryFilter && categoryFilter !== "all") params.category = categoryFilter;
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (ordering) params.ordering = ordering;
 
       const [reportsData, statsData] = await Promise.all([
         moderationService.getReports(params),
         moderationService.getStats().catch(() => null),
       ]);
 
-      const items = reportsData.results ? reportsData.results : reportsData;
+      const items = reportsData.results ? reportsData.results : (Array.isArray(reportsData) ? reportsData : []);
+      const count = reportsData.count ?? (Array.isArray(reportsData) ? reportsData.length : items.length);
       setReports(items);
+      setTotalCount(count);
       if (statsData) setStats(statsData);
     } catch (err) {
       setError("Failed to fetch moderation queue. Check your network or permissions.");
     } finally {
       setLoading(false);
     }
-  }, [filterFlaggedOnly]);
+  }, [page, pageSize, filterFlaggedOnly, statusFilter, categoryFilter, searchQuery, ordering]);
+
+  const clearFilters = () => {
+    setFilterFlaggedOnly(false);
+    setStatusFilter("all");
+    setCategoryFilter("all");
+    setSearchQuery("");
+    setOrdering("-flags_count");
+    setPage(1);
+  };
+
+  const hasActiveFilters = filterFlaggedOnly || statusFilter !== "all" || categoryFilter !== "all" || searchQuery.trim() !== "" || ordering !== "-flags_count";
 
   const fetchPlatformHistory = useCallback(async () => {
     try {
@@ -293,68 +325,204 @@ export function ModerationPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-3">
           <div className="overflow-x-auto">
             <div className="flex w-max min-w-full items-center space-x-6 text-sm font-semibold">
-            <button
-              onClick={() => setActiveTab("queue")}
-              className={`pb-2 flex items-center gap-2 border-b-2 transition-all ${
-                activeTab === "queue"
-                  ? "border-amber-500 text-amber-600 dark:text-amber-400"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
-            >
-              {/* <AlertTriangle className="w-4 h-4" /> */}
-              Queue Reports ({reports.length})
-            </button>
+              <button
+                onClick={() => setActiveTab("queue")}
+                className={`pb-2 flex items-center gap-2 border-b-2 transition-all ${
+                  activeTab === "queue"
+                    ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                    : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                Queue Reports ({totalCount})
+              </button>
 
-            <button
-              onClick={() => {
-                setActiveTab("history");
-                fetchPlatformHistory();
-              }}
-              className={`pb-2 flex items-center gap-2 border-b-2 transition-all ${
-                activeTab === "history"
-                  ? "border-amber-500 text-amber-600 dark:text-amber-400"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
-            >
-              {/* <History className="w-4 h-4" /> */}
-              Moderation Decision History
-            </button>
+              <button
+                onClick={() => {
+                  setActiveTab("history");
+                  fetchPlatformHistory();
+                }}
+                className={`pb-2 flex items-center gap-2 border-b-2 transition-all ${
+                  activeTab === "history"
+                    ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                    : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                Moderation Decision History
+              </button>
             </div>
           </div>
-
-          {activeTab === "queue" && (
-            <button
-              type="button"
-              onClick={() => setFilterFlaggedOnly((prev) => !prev)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
-                filterFlaggedOnly
-                  ? "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800"
-                  : "bg-white dark:bg-[#142533] text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700"
-              }`}
-            >
-              <Filter className="w-3.5 h-3.5" />
-              <span>{filterFlaggedOnly ? "Flagged Only" : "Show All Reports"}</span>
-            </button>
-          )}
         </div>
 
         {/* Tab 1: Queue Reports */}
         {activeTab === "queue" && (
-          <div>
+          <div className="space-y-4">
+            {/* Enhanced Queue Filter & Search Bar */}
+            <div className="rounded-2xl border border-[#DCE4E8] dark:border-slate-800 bg-white dark:bg-[#142533] p-4 sm:p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-200 dark:border-amber-900/50">
+                    <Filter className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-[#142B3B] dark:text-white">Moderation Queue Filters</h2>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Showing {reports.length} of {totalCount} {totalCount === 1 ? "report" : "reports"} from live database
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearFilters}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Clear Filters
+                    </button>
+                  )}
+                  <button
+                    onClick={fetchModerationData}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-amber-500" : ""}`} />
+                    Sync
+                  </button>
+                </div>
+              </div>
+
+              {/* Search, Category, and Ordering */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+                <div className="sm:col-span-6 relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPage(1);
+                    }}
+                    placeholder="Search by landmark, street, or description..."
+                    className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-[#142B3B] dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setPage(1);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="sm:col-span-3">
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => {
+                      setCategoryFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full py-2 px-3 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-[#142B3B] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="pothole">Pothole</option>
+                    <option value="flooding">Flooding</option>
+                    <option value="blocked_road">Blocked Road</option>
+                    <option value="fallen_tree">Fallen Tree</option>
+                    <option value="street_light_out">Street Light Out</option>
+                    <option value="dangerous_debris">Dangerous Debris</option>
+                    <option value="traffic_signal_failure">Traffic Signal Failure</option>
+                    <option value="construction_hazard">Construction Hazard</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-3 relative">
+                  <select
+                    value={ordering}
+                    onChange={(e) => {
+                      setOrdering(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full py-2 pl-3 pr-8 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-[#142B3B] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 appearance-none"
+                  >
+                    <option value="-flags_count">Most Flagged First</option>
+                    <option value="-created_at">Newest First</option>
+                    <option value="created_at">Oldest First</option>
+                    <option value="-confirmations_count">Most Confirmed</option>
+                  </select>
+                  <ArrowUpDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Status Chips and Flagged Only Toggle */}
+              <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
+                {[
+                  { id: "all", label: "All Statuses" },
+                  { id: "under_review", label: "Under Review" },
+                  { id: "reported", label: "Reported" },
+                  { id: "community_confirmed", label: "Confirmed" },
+                  { id: "resolved", label: "Resolved" },
+                  { id: "rejected", label: "Rejected" },
+                ].map(({ id, label }) => (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      setStatusFilter(id);
+                      setPage(1);
+                    }}
+                    className={`min-h-8 px-3 rounded-xl text-xs font-semibold transition-all border ${
+                      statusFilter === id
+                        ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+                        : "bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterFlaggedOnly((prev) => !prev);
+                    setPage(1);
+                  }}
+                  className={`ml-auto inline-flex items-center gap-1.5 min-h-8 px-3 rounded-xl text-xs font-semibold border transition-all ${
+                    filterFlaggedOnly
+                      ? "bg-rose-600 text-white border-rose-600 shadow-sm"
+                      : "bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border-slate-200 dark:border-slate-700"
+                  }`}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Flagged Only</span>
+                </button>
+              </div>
+            </div>
+
             {loading && <LoadingState message="Fetching moderation queue items..." />}
             {!loading && error && <ErrorState message={error} onRetry={fetchModerationData} />}
 
             {!loading && !error && reports.length === 0 && (
               <EmptyState
-                title="Moderation queue is clear"
-                message="There are no hazard reports awaiting review matching your criteria."
-                actionLabel="Refresh queue"
-                onAction={fetchModerationData}
+                title="No reports match your filters"
+                message={
+                  hasActiveFilters
+                    ? "Try adjusting your search query, status, or category."
+                    : "There are no hazard reports awaiting review in the queue."
+                }
+                actionLabel={hasActiveFilters ? "Clear All Filters" : "Refresh queue"}
+                onAction={hasActiveFilters ? clearFilters : fetchModerationData}
               />
             )}
 
             {!loading && !error && reports.length > 0 && (
-              <div className="space-y-4">
+              <>
+                <div className="space-y-4">
                 {reports.map((report) => (
                   <div
                     key={report.id}
@@ -443,7 +611,22 @@ export function ModerationPage() {
                   </div>
                 ))}
               </div>
-            )}
+
+              {/* Pagination Controls */}
+              <PaginationBar
+                currentPage={page}
+                totalPages={Math.max(1, Math.ceil(totalCount / pageSize))}
+                totalCount={totalCount}
+                pageSize={pageSize}
+                onPageChange={(newPage) => setPage(newPage)}
+                onPageSizeChange={(newSize) => {
+                  setPageSize(newSize);
+                  setPage(1);
+                }}
+                disabled={loading}
+              />
+            </>
+          )}
           </div>
         )}
 

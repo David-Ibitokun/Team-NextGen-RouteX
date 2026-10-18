@@ -24,11 +24,14 @@ import {
   FileText,
   Shield,
   UserCheck,
+  Filter,
+  X,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { HazardItem } from '../constants/hazardTypes';
 import { adminService } from '../services/apiClient';
+import { PaginationControlsNative } from './PaginationControlsNative';
 
 interface AdminDashboardNativeProps {
   hazards: HazardItem[];
@@ -64,6 +67,9 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
   // Users State
   const [users, setUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userPage, setUserPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(8);
+  const [userTotalCount, setUserTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
 
@@ -95,11 +101,14 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
-      const params: any = {};
+      const params: any = { page: userPage, page_size: userPageSize };
       if (searchQuery.trim()) params.q = searchQuery.trim();
       if (roleFilter !== 'all') params.role = roleFilter;
       const data = await adminService.getUsers(params);
-      setUsers(Array.isArray(data) ? data : data?.results || []);
+      const items = Array.isArray(data) ? data : data?.results || [];
+      const count = Array.isArray(data) ? data.length : data?.count ?? items.length;
+      setUsers(items);
+      setUserTotalCount(count);
     } catch {
       // Fallback sample users
       setUsers([
@@ -107,10 +116,11 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
         { id: 2, username: 'moderator', display_name: 'Mod User', role: 'moderator', email: 'moderator@routex.org' },
         { id: 3, username: 'citizen', display_name: 'Citizen Demo', role: 'citizen', email: 'citizen@routex.org' },
       ]);
+      setUserTotalCount(3);
     } finally {
       setLoadingUsers(false);
     }
-  }, [searchQuery, roleFilter]);
+  }, [userPage, userPageSize, searchQuery, roleFilter]);
 
   const loadAuditLogs = useCallback(async () => {
     setLoadingAudit(true);
@@ -405,41 +415,114 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
       {/* 5. Tab 2: User Directory */}
       {activeTab === 'users' && (
         <View style={styles.tabSection}>
-          <View style={styles.searchBar}>
-            <Search size={15} color={theme.textMuted} />
-            <TextInput
-              style={[styles.searchInput, { color: theme.textPrimary }]}
-              placeholder="Search by username or email..."
-              placeholderTextColor={theme.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
+          {/* Enhanced User Directory Filter Card */}
+          <View style={[styles.filterCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.filterCardHeader}>
+              <View style={styles.filterCardTitleRow}>
+                <View style={[styles.filterIconBadge, { backgroundColor: 'rgba(129, 140, 248, 0.15)' }]}>
+                  <Users size={14} color="#818CF8" />
+                </View>
+                <View>
+                  <Text style={[styles.filterCardTitle, { color: theme.textPrimary }]}>User Directory & Roles</Text>
+                  <Text style={[styles.filterCardSubtitle, { color: theme.textMuted }]}>
+                    Showing {users.length} of {userTotalCount} accounts from platform database
+                  </Text>
+                </View>
+              </View>
 
-          {/* Role Filters */}
-          <View style={styles.roleChipsRow}>
-            {['all', 'citizen', 'moderator', 'admin'].map((r) => (
-              <TouchableOpacity
-                key={r}
-                style={[
-                  styles.roleChip,
-                  roleFilter === r
-                    ? [styles.roleChipActive, { backgroundColor: '#818CF8' }]
-                    : [styles.roleChipInactive, { backgroundColor: theme.surface, borderColor: theme.border }],
-                ]}
-                onPress={() => setRoleFilter(r)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.roleChipText,
-                    { color: roleFilter === r ? '#FFFFFF' : theme.textSecondary },
-                  ]}
+              <View style={styles.filterActionsRow}>
+                {(searchQuery.trim() !== '' || roleFilter !== 'all') && (
+                  <TouchableOpacity
+                    style={[styles.clearFilterBtn, { borderColor: '#F87171', backgroundColor: isDark ? '#3D1B1B' : '#FEF2F2' }]}
+                    onPress={() => {
+                      setSearchQuery('');
+                      setRoleFilter('all');
+                      setUserPage(1);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <X size={11} color="#EF4444" />
+                    <Text style={styles.clearFilterText}>Reset</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  onPress={loadUsers}
+                  style={[styles.refreshIconBtn, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}
+                  activeOpacity={0.7}
                 >
-                  {r.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <RefreshCw size={12} color="#818CF8" />
+                  <Text style={[styles.refreshText, { color: '#818CF8' }]}>Sync</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Search Input */}
+            <View style={[styles.searchInputWrapper, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
+              <Search size={14} color={theme.textMuted} />
+              <TextInput
+                style={[styles.searchInputText, { color: theme.textPrimary }]}
+                placeholder="Search username or email..."
+                placeholderTextColor={theme.textMuted}
+                value={searchQuery}
+                onChangeText={(t) => {
+                  setSearchQuery(t);
+                  setUserPage(1);
+                }}
+                returnKeyType="search"
+              />
+              {searchQuery ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSearchQuery('');
+                    setUserPage(1);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={14} color={theme.textMuted} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* Role Chips */}
+            <View style={styles.roleChipsSection}>
+              <Text style={[styles.filterSectionLabel, { color: theme.textMuted }]}>ROLE FILTER</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roleChipsScroll}>
+                {[
+                  { id: 'all', label: 'All Accounts' },
+                  { id: 'citizen', label: 'Citizens' },
+                  { id: 'moderator', label: 'Moderators' },
+                  { id: 'admin', label: 'Administrators' },
+                ].map((r) => {
+                  const isSelected = roleFilter === r.id;
+                  return (
+                    <TouchableOpacity
+                      key={r.id}
+                      style={[
+                        styles.roleChip,
+                        isSelected
+                          ? [styles.roleChipActive, { backgroundColor: '#818CF8', borderColor: '#818CF8' }]
+                          : [styles.roleChipInactive, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }],
+                      ]}
+                      onPress={() => {
+                        setRoleFilter(r.id);
+                        setUserPage(1);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.roleChipText,
+                          { color: isSelected ? '#FFFFFF' : theme.textSecondary },
+                        ]}
+                      >
+                        {r.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
           </View>
 
           {loadingUsers ? (
@@ -490,6 +573,15 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
               </View>
             ))
           )}
+
+          <PaginationControlsNative
+            currentPage={userPage}
+            totalPages={Math.max(1, Math.ceil(userTotalCount / userPageSize))}
+            totalCount={userTotalCount}
+            pageSize={userPageSize}
+            onPageChange={(p) => setUserPage(p)}
+            loading={loadingUsers}
+          />
         </View>
       )}
 
@@ -726,6 +818,92 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  filterCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  filterCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  filterCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCardTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  filterCardSubtitle: {
+    fontSize: 10,
+    marginTop: 1,
+  },
+  filterActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  clearFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  clearFilterText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  refreshIconBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    gap: 8,
+  },
+  searchInputText: {
+    flex: 1,
+    fontSize: 12,
+    padding: 0,
+  },
+  roleChipsSection: {
+    gap: 6,
+  },
+  filterSectionLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  roleChipsScroll: {
+    gap: 6,
+    paddingVertical: 2,
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -746,14 +924,13 @@ const styles = StyleSheet.create({
   roleChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 6,
-  },
-  roleChipActive: {},
-  roleChipInactive: {
+    borderRadius: 8,
     borderWidth: 1,
   },
+  roleChipActive: {},
+  roleChipInactive: {},
   roleChipText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
   userCard: {

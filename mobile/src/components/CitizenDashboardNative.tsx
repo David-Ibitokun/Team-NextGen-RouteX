@@ -31,11 +31,15 @@ import {
   CircleDot,
   TreePine,
   HelpCircle,
+  Search,
+  Filter,
+  X,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { HazardItem } from '../constants/hazardTypes';
 import { authService } from '../services/apiClient';
+import { PaginationControlsNative } from './PaginationControlsNative';
 
 interface CitizenDashboardNativeProps {
   hazards: HazardItem[];
@@ -58,6 +62,13 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
 
   const [activeTab, setActiveTab] = useState<TabType>('reports');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [ordering, setOrdering] = useState('-created_at');
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
+  const [totalCount, setTotalCount] = useState(0);
 
   const [myReports, setMyReports] = useState<HazardItem[]>([]);
   const [loadingMyReports, setLoadingMyReports] = useState(false);
@@ -82,18 +93,27 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
     if (!isAuthenticated) return;
     setLoadingMyReports(true);
     try {
+      const params: Record<string, any> = { page, page_size: pageSize };
+      if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+      if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (ordering) params.ordering = ordering;
+
       const [reportsResp, summaryResp] = await Promise.all([
-        authService.getMyReports().catch(() => []),
+        authService.getMyReports(params).catch(() => []),
         authService.getDashboardSummary().catch(() => null),
       ]);
-      setMyReports(Array.isArray(reportsResp) ? reportsResp : []);
+      const items = Array.isArray(reportsResp) ? reportsResp : reportsResp?.results || [];
+      const count = Array.isArray(reportsResp) ? reportsResp.length : reportsResp?.count ?? items.length;
+      setMyReports(items);
+      setTotalCount(count);
       if (summaryResp) setSummaryData(summaryResp);
     } catch {
       // Ignored
     } finally {
       setLoadingMyReports(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, page, pageSize, statusFilter, categoryFilter, searchQuery, ordering]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -159,10 +179,19 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
     confirmations_received: displayedReports.reduce((acc, r) => acc + (r.confirmations_count || 0), 0),
   };
 
-  const filteredPersonalReports = myReports.filter((r) => {
-    if (statusFilter === 'all') return true;
-    return r.status === statusFilter;
-  });
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setCategoryFilter('all');
+    setSearchQuery('');
+    setOrdering('-created_at');
+    setPage(1);
+  };
+
+  const hasActiveFilters =
+    statusFilter !== 'all' ||
+    categoryFilter !== 'all' ||
+    searchQuery.trim() !== '' ||
+    ordering !== '-created_at';
 
   const isWide = windowWidth > 500;
 
@@ -346,7 +375,7 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
                 activeTab === 'reports' && styles.activeNavTabText,
               ]}
             >
-              My Road Reports ({isAuthenticated ? myReports.length : hazards.length})
+              My Road Reports ({isAuthenticated ? totalCount : hazards.length})
             </Text>
           </TouchableOpacity>
 
@@ -393,49 +422,165 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
       {/* 4. Tab 1: My Reports Content */}
       {activeTab === 'reports' && (
         <View style={styles.tabSection}>
-          <View style={styles.filterRow}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusChips}>
-              {['all', 'reported', 'community_confirmed', 'resolved'].map((st) => (
-                <TouchableOpacity
-                  key={st}
-                  style={[
-                    styles.statusChip,
-                    statusFilter === st
-                      ? [styles.statusChipActive, { backgroundColor: isDark ? '#FFFFFF' : '#142B3B' }]
-                      : [styles.statusChipInactive, { backgroundColor: theme.surface, borderColor: theme.border }],
-                  ]}
-                  onPress={() => setStatusFilter(st)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.statusChipText,
-                      {
-                        color:
-                          statusFilter === st
-                            ? isDark
-                              ? '#142B3B'
-                              : '#FFFFFF'
-                            : theme.textSecondary,
-                      },
-                    ]}
-                  >
-                    {st === 'all'
-                      ? 'All Reports'
-                      : st === 'community_confirmed'
-                      ? 'Confirmed'
-                      : st.charAt(0).toUpperCase() + st.slice(1)}
+          {/* Enhanced Filter & Search Card */}
+          <View style={[styles.filterCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {/* Header: Title, Live Database Count, Clear & Refresh */}
+            <View style={styles.filterCardHeader}>
+              <View style={styles.filterCardTitleRow}>
+                <View style={[styles.filterIconBadge, { backgroundColor: theme.tealLight }]}>
+                  <Filter size={14} color={theme.teal} />
+                </View>
+                <View>
+                  <Text style={[styles.filterCardTitle, { color: theme.textPrimary }]}>Filter & Search</Text>
+                  <Text style={[styles.filterCardSubtitle, { color: theme.textMuted }]}>
+                    Showing {myReports.length} of {totalCount} reports from live database
                   </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                </View>
+              </View>
 
-            {isAuthenticated && (
-              <TouchableOpacity onPress={loadPersonalReports} style={styles.refreshBtn} activeOpacity={0.7}>
-                <RefreshCw size={13} color={theme.textMuted} />
-                <Text style={[styles.refreshText, { color: theme.textMuted }]}>Refresh</Text>
-              </TouchableOpacity>
-            )}
+              <View style={styles.filterActionsRow}>
+                {hasActiveFilters && (
+                  <TouchableOpacity
+                    style={[styles.clearFilterBtn, { borderColor: '#F87171', backgroundColor: isDark ? '#3D1B1B' : '#FEF2F2' }]}
+                    onPress={clearFilters}
+                    activeOpacity={0.7}
+                  >
+                    <X size={11} color="#EF4444" />
+                    <Text style={styles.clearFilterText}>Reset</Text>
+                  </TouchableOpacity>
+                )}
+
+                {isAuthenticated && (
+                  <TouchableOpacity
+                    onPress={loadPersonalReports}
+                    style={[styles.refreshIconBtn, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}
+                    activeOpacity={0.7}
+                  >
+                    <RefreshCw size={12} color={theme.teal} />
+                    <Text style={[styles.refreshText, { color: theme.teal }]}>Sync</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Keyword Search Input */}
+            <View style={[styles.searchInputWrapper, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
+              <Search size={14} color={theme.textMuted} />
+              <TextInput
+                style={[styles.searchInputText, { color: theme.textPrimary }]}
+                placeholder="Search street landmark or details..."
+                placeholderTextColor={theme.textMuted}
+                value={searchQuery}
+                onChangeText={(t) => {
+                  setSearchQuery(t);
+                  setPage(1);
+                }}
+                returnKeyType="search"
+              />
+              {searchQuery ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSearchQuery('');
+                    setPage(1);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={14} color={theme.textMuted} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* Category Filter Chips Horizontal Scroller */}
+            <View style={styles.categoryChipsSection}>
+              <Text style={[styles.filterSectionLabel, { color: theme.textMuted }]}>CATEGORY</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryChipsScroll}>
+                {[
+                  { id: 'all', label: 'All Categories' },
+                  { id: 'pothole', label: 'Pothole' },
+                  { id: 'flooding', label: 'Flooding' },
+                  { id: 'blocked_road', label: 'Blocked Road' },
+                  { id: 'fallen_tree', label: 'Fallen Tree' },
+                  { id: 'street_light_out', label: 'Street Light Out' },
+                  { id: 'dangerous_debris', label: 'Debris' },
+                  { id: 'traffic_signal_failure', label: 'Traffic Signal' },
+                  { id: 'construction_hazard', label: 'Construction' },
+                  { id: 'other', label: 'Other' },
+                ].map((cat) => {
+                  const isSelected = categoryFilter === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.categoryChip,
+                        isSelected
+                          ? [styles.categoryChipActive, { backgroundColor: theme.teal, borderColor: theme.teal }]
+                          : [styles.categoryChipInactive, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }],
+                      ]}
+                      onPress={() => {
+                        setCategoryFilter(cat.id);
+                        setPage(1);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          { color: isSelected ? '#FFFFFF' : theme.textSecondary },
+                        ]}
+                      >
+                        {cat.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Status Filter Chips Row */}
+            <View style={styles.statusChipsSection}>
+              <Text style={[styles.filterSectionLabel, { color: theme.textMuted }]}>STATUS</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusChipsScroll}>
+                {[
+                  { id: 'all', label: 'All Reports', count: summaryData?.metrics?.total_reports ?? myReports.length },
+                  { id: 'reported', label: 'Reported', count: summaryData?.metrics?.active_reports ?? 0 },
+                  { id: 'community_confirmed', label: 'Confirmed', count: summaryData?.metrics?.confirmed_reports ?? 0 },
+                  { id: 'resolved', label: 'Resolved', count: summaryData?.metrics?.resolved_reports ?? 0 },
+                ].map((st) => {
+                  const isSelected = statusFilter === st.id;
+                  return (
+                    <TouchableOpacity
+                      key={st.id}
+                      style={[
+                        styles.statusChip,
+                        isSelected
+                          ? [styles.statusChipActive, { backgroundColor: isDark ? '#FFFFFF' : '#142B3B', borderColor: isDark ? '#FFFFFF' : '#142B3B' }]
+                          : [styles.statusChipInactive, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }],
+                      ]}
+                      onPress={() => {
+                        setStatusFilter(st.id);
+                        setPage(1);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.statusChipText,
+                          {
+                            color: isSelected
+                              ? isDark
+                                ? '#142B3B'
+                                : '#FFFFFF'
+                              : theme.textSecondary,
+                          },
+                        ]}
+                      >
+                        {st.label} ({st.count})
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
           </View>
 
           {!isAuthenticated ? (
@@ -460,28 +605,30 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
             </View>
           ) : loadingMyReports ? (
             <ActivityIndicator size="small" color={theme.teal} style={{ marginVertical: 24 }} />
-          ) : filteredPersonalReports.length === 0 ? (
+          ) : myReports.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <CheckCircle2 size={36} color={theme.teal} style={{ marginBottom: 6 }} />
               <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>
-                {myReports.length === 0 ? 'No Reports Submitted Yet' : 'No Matching Reports'}
+                {hasActiveFilters ? 'No Matching Reports Found' : 'No Reports Submitted Yet'}
               </Text>
               <Text style={[styles.emptySub, { color: theme.textMuted }]}>
-                {myReports.length === 0
-                  ? 'Help fellow commuters by reporting floodwaters or potholes on your route.'
-                  : 'No submitted hazards match the current filter.'}
+                {hasActiveFilters
+                  ? 'Try clearing or modifying your status, category, or search keywords.'
+                  : 'Help fellow commuters by reporting floodwaters or potholes on your route.'}
               </Text>
               <TouchableOpacity
                 style={[styles.primaryActionBtn, { backgroundColor: theme.teal, marginTop: 10 }]}
-                onPress={onOpenReport}
+                onPress={hasActiveFilters ? clearFilters : onOpenReport}
                 activeOpacity={0.8}
               >
-                <PlusCircle size={15} color="#FFFFFF" />
-                <Text style={styles.primaryActionText}>Submit First Hazard</Text>
+                {hasActiveFilters ? <X size={15} color="#FFFFFF" /> : <PlusCircle size={15} color="#FFFFFF" />}
+                <Text style={styles.primaryActionText}>
+                  {hasActiveFilters ? 'Reset All Filters' : 'Submit First Hazard'}
+                </Text>
               </TouchableOpacity>
             </View>
           ) : (
-            filteredPersonalReports.map((report) => (
+            myReports.map((report) => (
               <View
                 key={report.id}
                 style={[styles.reportItemCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
@@ -552,6 +699,17 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
                 </View>
               </View>
             ))
+          )}
+
+          {isAuthenticated && (
+            <PaginationControlsNative
+              currentPage={page}
+              totalPages={Math.max(1, Math.ceil(totalCount / pageSize))}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              onPageChange={(p) => setPage(p)}
+              loading={loadingMyReports}
+            />
           )}
         </View>
       )}
@@ -946,18 +1104,119 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  statusChips: {
+  filterCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  filterCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  filterCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCardTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  filterCardSubtitle: {
+    fontSize: 10,
+    marginTop: 1,
+  },
+  filterActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+  },
+  clearFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  clearFilterText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  refreshIconBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    gap: 8,
+  },
+  searchInputText: {
+    flex: 1,
+    fontSize: 12,
+    padding: 0,
+  },
+  categoryChipsSection: {
+    gap: 6,
+  },
+  filterSectionLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  categoryChipsScroll: {
+    gap: 6,
+    paddingVertical: 2,
+  },
+  categoryChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  categoryChipActive: {},
+  categoryChipInactive: {},
+  categoryChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusChipsSection: {
+    gap: 6,
+  },
+  statusChipsScroll: {
+    gap: 6,
+    paddingVertical: 2,
   },
   statusChip: {
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 8,
-  },
-  statusChipActive: {},
-  statusChipInactive: {
     borderWidth: 1,
   },
+  statusChipActive: {},
+  statusChipInactive: {},
   statusChipText: {
     fontSize: 11,
     fontWeight: '700',
@@ -969,7 +1228,7 @@ const styles = StyleSheet.create({
   },
   refreshText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   guestCard: {
     alignItems: 'center',

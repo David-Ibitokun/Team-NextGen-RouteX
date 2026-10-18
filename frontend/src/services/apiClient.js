@@ -93,10 +93,11 @@ export const authService = {
   },
 
   /**
-   * Get currently authenticated user's submitted reports
+   * Get currently authenticated user's submitted reports with optional filtering
+   * @param {Object} params - { status, category, search, ordering }
    */
-  async getMyReports() {
-    const response = await apiClient.get("/auth/me/reports/");
+  async getMyReports(params = {}) {
+    const response = await apiClient.get("/auth/me/reports/", { params });
     return response.data;
   },
 

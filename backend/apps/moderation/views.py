@@ -35,6 +35,24 @@ class IsModeratorOrAdmin(BasePermission):
             description="Filter by report status.",
         ),
         OpenApiParameter(
+            name="category",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter by hazard category.",
+        ),
+        OpenApiParameter(
+            name="search",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Search keyword matching description or location landmark.",
+        ),
+        OpenApiParameter(
+            name="ordering",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Sort order (-flags_count, -created_at, created_at, -confirmations_count).",
+        ),
+        OpenApiParameter(
             name="flagged_only",
             type=OpenApiTypes.BOOL,
             location=OpenApiParameter.QUERY,
@@ -46,15 +64,52 @@ class IsModeratorOrAdmin(BasePermission):
 @api_view(["GET"])
 @permission_classes([IsModeratorOrAdmin])
 def moderation_reports_list(request):
-    queryset = HazardReport.objects.all().order_by("-flags_count", "-created_at")
+    from django.db.models import Q
+    queryset = HazardReport.objects.all()
 
     status_filter = request.query_params.get("status")
-    if status_filter:
+    if status_filter and status_filter != "all":
         queryset = queryset.filter(status=status_filter)
+
+    category_filter = request.query_params.get("category")
+    if category_filter and category_filter != "all":
+        queryset = queryset.filter(category=category_filter)
+
+    search_filter = request.query_params.get("search")
+    if search_filter:
+        s = search_filter.strip()
+        queryset = queryset.filter(
+            Q(description__icontains=s) | Q(location_name__icontains=s)
+        )
 
     flagged_only = request.query_params.get("flagged_only")
     if flagged_only is not None and flagged_only.lower() in ("true", "1", "yes"):
         queryset = queryset.filter(flags_count__gt=0)
+
+    ordering_param = request.query_params.get("ordering", "-flags_count")
+    valid_orderings = ["-flags_count", "-created_at", "created_at", "-confirmations_count", "confirmations_count"]
+    if ordering_param in valid_orderings:
+        queryset = queryset.order_by(ordering_param, "-created_at")
+    else:
+        queryset = queryset.order_by("-flags_count", "-created_at")
+
+    from rest_framework.pagination import PageNumberPagination
+
+    paginate_param = request.query_params.get("paginate")
+    page_param = request.query_params.get("page")
+    page_size_param = request.query_params.get("page_size")
+
+    if page_param or page_size_param or (paginate_param and paginate_param.lower() in ("true", "1")):
+        paginator = PageNumberPagination()
+        if page_size_param:
+            try:
+                paginator.page_size = max(1, min(100, int(page_size_param)))
+            except ValueError:
+                pass
+        page = paginator.paginate_queryset(queryset, request)
+        if page is not None:
+            serializer = HazardReportSerializer(page, many=True, context={"request": request})
+            return paginator.get_paginated_response(serializer.data)
 
     serializer = HazardReportSerializer(queryset, many=True, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)

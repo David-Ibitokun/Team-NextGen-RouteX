@@ -66,6 +66,9 @@ export const DashboardScreenNative: React.FC<DashboardScreenNativeProps> = ({
 
   const [activeTab, setActiveTab] = useState<DashboardTab>('reports');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [ordering, setOrdering] = useState('-created_at');
 
   // Commuter's personal reports
   const [myReports, setMyReports] = useState<HazardItem[]>([]);
@@ -116,8 +119,14 @@ export const DashboardScreenNative: React.FC<DashboardScreenNativeProps> = ({
     if (!isAuthenticated) return;
     setLoadingMyReports(true);
     try {
+      const params: Record<string, any> = {};
+      if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+      if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (ordering) params.ordering = ordering;
+
       const [reportsResp, summaryResp] = await Promise.all([
-        authService.getMyReports().catch(() => []),
+        authService.getMyReports(params).catch(() => []),
         authService.getDashboardSummary().catch(() => null),
       ]);
       setMyReports(Array.isArray(reportsResp) ? reportsResp : []);
@@ -127,7 +136,7 @@ export const DashboardScreenNative: React.FC<DashboardScreenNativeProps> = ({
     } finally {
       setLoadingMyReports(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, statusFilter, categoryFilter, searchQuery, ordering]);
 
   useEffect(() => {
     if (isAuthenticated) {

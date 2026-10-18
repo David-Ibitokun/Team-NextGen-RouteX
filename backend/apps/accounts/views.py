@@ -19,11 +19,16 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes, authentication_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
-from drf_spectacular.utils import extend_schema, OpenApiExample
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter, OpenApiTypes
+
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+    def enforce_csrf(self, request):
+        return  # Allow mobile and web clients to authenticate via session without CSRF mismatch on account actions
 
 from .serializers import (
     UserRegistrationSerializer,
@@ -213,9 +218,14 @@ def me_view(request):
         "Permanently deletes the authenticated user's account and profile. "
         "Public hazard reports remain available, but are no longer attributed to the deleted account."
     ),
-    responses={204: None, 401: {"description": "Not authenticated"}},
+    responses={
+        200: {"type": "object", "properties": {"detail": {"type": "string"}}},
+        204: None,
+        401: {"description": "Not authenticated"},
+    },
 )
-@api_view(["DELETE"])
+@api_view(["DELETE", "POST"])
+@authentication_classes([CsrfExemptSessionAuthentication, BasicAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_account_view(request):
     """Permanently delete the current user's account and end the session."""
@@ -226,6 +236,8 @@ def delete_account_view(request):
     logout(request)
     user.delete()
     logger.info("User account deleted by self-service request: user_id=%s username=%s", user_id, username)
+    if request.method == "POST":
+        return Response({"detail": "Your account has been permanently deleted."}, status=status.HTTP_200_OK)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -233,17 +245,86 @@ def delete_account_view(request):
     tags=["auth"],
     summary="Get the authenticated user's hazard reports",
     description=(
-        "Returns all road hazard reports submitted by the currently authenticated user, "
-        "ordered by most recent first."
+        "Returns road hazard reports submitted by the currently authenticated user, "
+        "with optional filtering by status, category, search keyword, and ordering."
     ),
+    parameters=[
+        OpenApiParameter(
+            name="status",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter by report status (reported, community_confirmed, resolved, under_review, rejected).",
+        ),
+        OpenApiParameter(
+            name="category",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter by hazard category (pothole, flooding, blocked_road, fallen_tree, street_light_out, dangerous_debris, traffic_signal_failure, construction_hazard, other).",
+        ),
+        OpenApiParameter(
+            name="search",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Search keyword matching description or location landmark.",
+        ),
+        OpenApiParameter(
+            name="ordering",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Sort order (-created_at, created_at, -confirmations_count).",
+        ),
+    ],
     responses={200: HazardReportSerializer(many=True)},
 )
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_reports_view(request):
-    """Return all hazard reports submitted by the current user."""
+    """Return all hazard reports submitted by the current user with backend filtering."""
+    from django.db.models import Q
     from apps.hazards.models import HazardReport
-    queryset = HazardReport.objects.filter(reporter=request.user).order_by("-created_at")
+    
+    queryset = HazardReport.objects.filter(reporter=request.user)
+
+    status_param = request.query_params.get("status")
+    if status_param and status_param != "all":
+        queryset = queryset.filter(status=status_param)
+
+    category_param = request.query_params.get("category")
+    if category_param and category_param != "all":
+        queryset = queryset.filter(category=category_param)
+
+    search_param = request.query_params.get("search")
+    if search_param:
+        search_query = search_param.strip()
+        queryset = queryset.filter(
+            Q(description__icontains=search_query) | Q(location_name__icontains=search_query)
+        )
+
+    ordering_param = request.query_params.get("ordering", "-created_at")
+    valid_orderings = ["-created_at", "created_at", "-confirmations_count", "confirmations_count"]
+    if ordering_param in valid_orderings:
+        queryset = queryset.order_by(ordering_param)
+    else:
+        queryset = queryset.order_by("-created_at")
+
+    from rest_framework.pagination import PageNumberPagination
+
+    paginate_param = request.query_params.get("paginate")
+    page_param = request.query_params.get("page")
+    page_size_param = request.query_params.get("page_size")
+
+    if page_param or page_size_param or (paginate_param and paginate_param.lower() in ("true", "1")):
+        paginator = PageNumberPagination()
+        if page_size_param:
+            try:
+                paginator.page_size = max(1, min(100, int(page_size_param)))
+            except ValueError:
+                pass
+        page = paginator.paginate_queryset(queryset, request)
+        if page is not None:
+            serializer = HazardReportSerializer(page, many=True, context={"request": request})
+            return paginator.get_paginated_response(serializer.data)
+
     serializer = HazardReportSerializer(queryset, many=True, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 

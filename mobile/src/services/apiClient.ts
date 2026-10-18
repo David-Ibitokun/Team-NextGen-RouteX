@@ -149,7 +149,9 @@ export async function apiRequest<T = any>(
 
     const contentType = response.headers.get('content-type') || '';
     let responseData: any = null;
-    if (contentType.includes('application/json')) {
+    if (response.status === 204) {
+      responseData = null;
+    } else if (contentType.includes('application/json')) {
       responseData = await response.json();
     } else {
       responseData = await response.text();
@@ -303,10 +305,17 @@ export const authService = {
   },
 
   /**
-   * Get currently authenticated user's submitted reports
+   * Get currently authenticated user's submitted reports with optional backend filtering
    */
-  async getMyReports(): Promise<HazardItem[]> {
-    return apiRequest<HazardItem[]>('/auth/me/reports/');
+  async getMyReports(params: Record<string, any> = {}): Promise<any> {
+    const query = new URLSearchParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        query.append(key, String(params[key]));
+      }
+    });
+    const qs = query.toString();
+    return apiRequest<any>(`/auth/me/reports/${qs ? `?${qs}` : ''}`);
   },
 
   /**

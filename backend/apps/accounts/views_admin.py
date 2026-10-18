@@ -120,6 +120,24 @@ def admin_users_list_view(request):
     elif role_filter == "citizen":
         users = users.filter(~Q(is_superuser=True) & ~Q(is_staff=True) & (Q(profile__role="citizen") | Q(profile__role="")))
 
+    from rest_framework.pagination import PageNumberPagination
+
+    paginate_param = request.query_params.get("paginate")
+    page_param = request.query_params.get("page")
+    page_size_param = request.query_params.get("page_size")
+
+    if page_param or page_size_param or (paginate_param and paginate_param.lower() in ("true", "1")):
+        paginator = PageNumberPagination()
+        if page_size_param:
+            try:
+                paginator.page_size = max(1, min(100, int(page_size_param)))
+            except ValueError:
+                pass
+        page = paginator.paginate_queryset(users, request)
+        if page is not None:
+            serializer = AdminUserSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
     serializer = AdminUserSerializer(users, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 

@@ -21,6 +21,10 @@ import {
   Flame,
   Check,
   RefreshCw,
+  Search,
+  Filter,
+  X,
+  ArrowUpDown,
 } from "lucide-react";
 import { AppHeader } from "../components/layout/AppHeader";
 import { useAuth } from "../context/AuthContext";
@@ -30,6 +34,7 @@ import { FreshnessBadge } from "../components/hazards/FreshnessBadge";
 import { LoadingState } from "../components/feedback/LoadingState";
 import { ErrorState } from "../components/feedback/ErrorState";
 import { EmptyState } from "../components/feedback/EmptyState";
+import { PaginationBar } from "../components/common/PaginationBar";
 
 export function CustomerDashboardPage() {
   const { user, isAuthenticated, loading: authLoading, refreshMe, deleteAccount } = useAuth();
@@ -40,7 +45,17 @@ export function CustomerDashboardPage() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Pagination States
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Backend Filter & Search States
   const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [ordering, setOrdering] = useState("-created_at");
 
   // Profile Edit Form State
   const [displayName, setDisplayName] = useState("");
@@ -55,18 +70,27 @@ export function CustomerDashboardPage() {
     try {
       setLoading(true);
       setError(null);
+      const params = { page, page_size: pageSize };
+      if (statusFilter && statusFilter !== "all") params.status = statusFilter;
+      if (categoryFilter && categoryFilter !== "all") params.category = categoryFilter;
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (ordering) params.ordering = ordering;
+
       const [reportsData, summaryData] = await Promise.all([
-        authService.getMyReports(),
+        authService.getMyReports(params),
         authService.getDashboardSummary(),
       ]);
-      setReports(Array.isArray(reportsData) ? reportsData : reportsData.results || []);
+      const items = Array.isArray(reportsData) ? reportsData : reportsData.results || [];
+      const count = Array.isArray(reportsData) ? reportsData.length : reportsData.count ?? items.length;
+      setReports(items);
+      setTotalCount(count);
       setSummary(summaryData);
     } catch (err) {
       setError("Failed to load your personal dashboard data. Please check your connection.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize, statusFilter, categoryFilter, searchQuery, ordering]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -120,10 +144,39 @@ export function CustomerDashboardPage() {
     }
   };
 
-  const filteredReports = reports.filter((r) => {
-    if (statusFilter === "all") return true;
-    return r.status === statusFilter;
-  });
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setCategoryFilter("all");
+    setSearchQuery("");
+    setOrdering("-created_at");
+    setPage(1);
+  };
+
+  const hasActiveFilters = statusFilter !== "all" || categoryFilter !== "all" || searchQuery.trim() !== "" || ordering !== "-created_at";
+
+  const statusFilterOptions = [
+    { id: "all", label: "All reports", count: summary?.metrics?.total_reports ?? reports.length },
+    { id: "reported", label: "Reported", count: summary?.metrics?.active_reports ?? 0 },
+    {
+      id: "community_confirmed",
+      label: "Confirmed",
+      count: summary?.metrics?.confirmed_reports ?? 0,
+    },
+    { id: "resolved", label: "Resolved", count: summary?.metrics?.resolved_reports ?? 0 },
+  ];
+
+  const categoryOptions = [
+    { id: "all", label: "All Categories" },
+    { id: "pothole", label: "Pothole" },
+    { id: "flooding", label: "Flooding" },
+    { id: "blocked_road", label: "Blocked Road" },
+    { id: "fallen_tree", label: "Fallen Tree" },
+    { id: "street_light_out", label: "Street Light Out" },
+    { id: "dangerous_debris", label: "Dangerous Debris" },
+    { id: "traffic_signal_failure", label: "Traffic Signal Failure" },
+    { id: "construction_hazard", label: "Construction Hazard" },
+    { id: "other", label: "Other" },
+  ];
 
   if (authLoading) {
     return (
@@ -283,52 +336,154 @@ export function CustomerDashboardPage() {
         {/* Tab 1: My Reports List */}
         {activeTab === "reports" && (
           <div className="space-y-4">
-            {/* Filter Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {["all", "reported", "community_confirmed", "resolved"].map((st) => (
+            {/* Enhanced Filter & Search Bar */}
+            <div className="rounded-2xl border border-[#DCE4E8] dark:border-slate-800 bg-white dark:bg-[#142533] p-4 sm:p-5 shadow-sm space-y-4">
+              {/* Header row: title + live count + clear & refresh */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-[#087F8C] dark:text-teal-400 flex items-center justify-center border border-teal-100 dark:border-teal-900/50">
+                    <Filter className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-[#142B3B] dark:text-white">Filter & Search Reports</h2>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Showing {reports.length} of {totalCount} {totalCount === 1 ? "report" : "reports"} from live database
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearFilters}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 transition-colors"
+                      title="Reset all filters"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Clear Filters
+                    </button>
+                  )}
                   <button
-                    key={st}
-                    onClick={() => setStatusFilter(st)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                      statusFilter === st
-                        ? "bg-[#142B3B] dark:bg-white text-white dark:text-[#142B3B]"
-                        : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-[#DCE4E8] dark:border-slate-700"
+                    onClick={loadDashboardData}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+                    aria-label="Refresh reports"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#087F8C]" : ""}`} />
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
+              {/* Search + Category Dropdown + Ordering Controls */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+                {/* Search Keyword */}
+                <div className="sm:col-span-6 relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPage(1);
+                    }}
+                    placeholder="Search by street landmark or description..."
+                    className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-[#142B3B] dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setPage(1);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Category Dropdown */}
+                <div className="sm:col-span-3">
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => {
+                      setCategoryFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full py-2 px-3 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-[#142B3B] dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    {categoryOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sort Ordering */}
+                <div className="sm:col-span-3">
+                  <div className="relative">
+                    <select
+                      value={ordering}
+                      onChange={(e) => {
+                        setOrdering(e.target.value);
+                        setPage(1);
+                      }}
+                      className="w-full py-2 pl-3 pr-8 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-[#142B3B] dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none"
+                    >
+                      <option value="-created_at">Newest First</option>
+                      <option value="created_at">Oldest First</option>
+                      <option value="-confirmations_count">Most Confirmed</option>
+                    </select>
+                    <ArrowUpDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Filter Chips Row */}
+              <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
+                {statusFilterOptions.map(({ id, label, count }) => (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      setStatusFilter(id);
+                      setPage(1);
+                    }}
+                    aria-pressed={statusFilter === id}
+                    className={`min-h-8 px-3 rounded-xl text-xs font-semibold transition-all border ${
+                      statusFilter === id
+                        ? "bg-[#087F8C] text-white border-[#087F8C] shadow-sm shadow-teal-500/20"
+                        : "bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700"
                     }`}
                   >
-                    {st === "all" ? "All Reports" : st.replace("_", " ")}
+                    {label} <span className={statusFilter === id ? "opacity-90 font-bold" : "text-slate-400 dark:text-slate-500"}>({count})</span>
                   </button>
                 ))}
               </div>
-
-              <button
-                onClick={loadDashboardData}
-                className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Refresh
-              </button>
             </div>
 
-            {loading && <LoadingState message="Loading your submitted reports..." />}
+            {loading && <LoadingState message="Fetching your submitted reports from live database..." />}
             {!loading && error && <ErrorState message={error} onRetry={loadDashboardData} />}
 
-            {!loading && !error && filteredReports.length === 0 && (
+            {!loading && !error && reports.length === 0 && (
               <EmptyState
-                title="No reports match your selection"
+                title="No reports match your filters"
                 message={
-                  reports.length === 0
-                    ? "You haven't submitted any road hazards yet. Help your community by reporting potholes, flooding, or blocked roads!"
-                    : "No hazard reports match this status filter."
+                  hasActiveFilters
+                    ? "Try adjusting your search keywords, status filter, or hazard category."
+                    : "You haven't submitted any road hazards yet. Help your community by reporting potholes, flooding, or blocked roads!"
                 }
-                actionLabel="Report a Hazard"
-                onAction={() => navigate("/report")}
+                actionLabel={hasActiveFilters ? "Clear All Filters" : "Report a Hazard"}
+                onAction={hasActiveFilters ? clearFilters : () => navigate("/report")}
               />
             )}
 
-            {!loading && !error && filteredReports.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredReports.map((report) => (
+            {!loading && !error && reports.length > 0 && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {reports.map((report) => (
                   <div
                     key={report.id}
                     className="bg-white dark:bg-[#142533] p-5 rounded-2xl border border-[#DCE4E8] dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
@@ -383,7 +538,22 @@ export function CustomerDashboardPage() {
                   </div>
                 ))}
               </div>
-            )}
+
+              {/* Pagination Controls */}
+              <PaginationBar
+                currentPage={page}
+                totalPages={Math.max(1, Math.ceil(totalCount / pageSize))}
+                totalCount={totalCount}
+                pageSize={pageSize}
+                onPageChange={(newPage) => setPage(newPage)}
+                onPageSizeChange={(newSize) => {
+                  setPageSize(newSize);
+                  setPage(1);
+                }}
+                disabled={loading}
+              />
+            </>
+          )}
           </div>
         )}
 

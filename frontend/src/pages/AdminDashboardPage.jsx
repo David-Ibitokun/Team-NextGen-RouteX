@@ -28,6 +28,7 @@ import { adminService } from "../services/apiClient";
 import { LoadingState } from "../components/feedback/LoadingState";
 import { ErrorState } from "../components/feedback/ErrorState";
 import { EmptyState } from "../components/feedback/EmptyState";
+import { PaginationBar } from "../components/common/PaginationBar";
 
 export function AdminDashboardPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -42,6 +43,9 @@ export function AdminDashboardPage() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedUserForRole, setSelectedUserForRole] = useState(null);
   const [targetRole, setTargetRole] = useState("citizen");
   const [roleChangeReason, setRoleChangeReason] = useState("");
@@ -93,17 +97,20 @@ export function AdminDashboardPage() {
   const fetchUsers = useCallback(async () => {
     try {
       setLoadingUsers(true);
-      const params = {};
+      const params = { page, page_size: pageSize };
       if (searchQuery.trim()) params.q = searchQuery.trim();
       if (roleFilter !== "all") params.role = roleFilter;
       const data = await adminService.getUsers(params);
-      setUsers(Array.isArray(data) ? data : data.results || []);
+      const items = Array.isArray(data) ? data : data.results || [];
+      const count = Array.isArray(data) ? data.length : data.count ?? items.length;
+      setUsers(items);
+      setTotalCount(count);
     } catch (err) {
       console.error("Failed to fetch users:", err);
     } finally {
       setLoadingUsers(false);
     }
-  }, [searchQuery, roleFilter]);
+  }, [page, pageSize, searchQuery, roleFilter]);
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -379,7 +386,7 @@ export function AdminDashboardPage() {
             }`}
           >
             {/* <Users className="w-4 h-4" /> */}
-            User & Role Management ({users.length})
+            User & Role Management ({totalCount})
           </button>
 
           <button
@@ -412,33 +419,95 @@ export function AdminDashboardPage() {
         {activeTab === "users" && (
           <div className="space-y-4">
             {/* Search & Role Filter Bar */}
-            <div className="bg-white dark:bg-[#142533] p-4 rounded-2xl border border-[#DCE4E8] dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search by username or email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-[#142B3B] dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+            <div className="bg-white dark:bg-[#142533] p-4 sm:p-5 rounded-2xl border border-[#DCE4E8] dark:border-slate-800 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-900/50">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-[#142B3B] dark:text-white">User Directory & Roles</h2>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Showing {users.length} of {totalCount} {totalCount === 1 ? "user" : "users"} from platform database
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {(searchQuery.trim() !== "" || roleFilter !== "all") && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setRoleFilter("all");
+                        setPage(1);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Clear Filters
+                    </button>
+                  )}
+                  <button
+                    onClick={fetchUsers}
+                    disabled={loadingUsers}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingUsers ? "animate-spin text-indigo-600" : ""}`} />
+                    Sync
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-slate-400">Role:</span>
-                {["all", "citizen", "moderator", "admin"].map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setRoleFilter(r)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                      roleFilter === r
-                        ? "bg-indigo-600 text-white"
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by username or email..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-[#142B3B] dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  {searchQuery ? (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setPage(1);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Role:</span>
+                  {[
+                    { id: "all", label: "All Users" },
+                    { id: "citizen", label: "Citizens" },
+                    { id: "moderator", label: "Moderators" },
+                    { id: "admin", label: "Admins" },
+                  ].map(({ id, label }) => (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        setRoleFilter(id);
+                        setPage(1);
+                      }}
+                      className={`min-h-8 px-3 rounded-xl text-xs font-semibold transition-all border ${
+                        roleFilter === id
+                          ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                          : "bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -536,6 +605,22 @@ export function AdminDashboardPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="px-4 pb-2">
+                  <PaginationBar
+                    currentPage={page}
+                    totalPages={Math.max(1, Math.ceil(totalCount / pageSize))}
+                    totalCount={totalCount}
+                    pageSize={pageSize}
+                    onPageChange={(newPage) => setPage(newPage)}
+                    onPageSizeChange={(newSize) => {
+                      setPageSize(newSize);
+                      setPage(1);
+                    }}
+                    disabled={loadingUsers}
+                  />
                 </div>
               </div>
             )}

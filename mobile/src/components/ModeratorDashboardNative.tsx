@@ -29,11 +29,13 @@ import {
   CircleDot,
   TreePine,
   HelpCircle,
+  Search,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { HazardItem } from '../constants/hazardTypes';
 import { moderationService } from '../services/apiClient';
+import { PaginationControlsNative } from './PaginationControlsNative';
 
 interface ModeratorDashboardNativeProps {
   hazards: HazardItem[];
@@ -54,7 +56,14 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
 
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
+  const [totalCount, setTotalCount] = useState(0);
   const [flaggedOnly, setFlaggedOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [ordering, setOrdering] = useState('-flags_count');
   const [stats, setStats] = useState<any>(null);
 
   // Action Modal State
@@ -69,24 +78,58 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
   const loadQueueData = useCallback(async () => {
     setLoading(true);
     try {
+      const params: Record<string, any> = { page, page_size: pageSize };
+      if (flaggedOnly) params.flagged_only = true;
+      if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+      if (categoryFilter && categoryFilter !== 'all') params.category = categoryFilter;
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (ordering) params.ordering = ordering;
+
       const [queueData, statsData] = await Promise.all([
-        moderationService.getReports(flaggedOnly ? { flagged_only: true } : {}),
+        moderationService.getReports(params),
         moderationService.getStats().catch(() => null),
       ]);
       const items = Array.isArray(queueData) ? queueData : queueData?.results || [];
+      const count = Array.isArray(queueData) ? queueData.length : queueData?.count ?? items.length;
       setReports(items);
+      setTotalCount(count);
       if (statsData) setStats(statsData);
     } catch {
       // Fallback filter over hazards
       const fallback = hazards.filter((h) => {
-        if (flaggedOnly) return (h.flags_count || 0) > 0;
-        return h.status === 'under_review' || h.status === 'reported';
+        if (flaggedOnly && !(h.flags_count && h.flags_count > 0)) return false;
+        if (statusFilter !== 'all' && h.status !== statusFilter) return false;
+        if (categoryFilter !== 'all' && h.category !== categoryFilter) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchDesc = h.description && h.description.toLowerCase().includes(q);
+          const matchLoc = h.location_name && h.location_name.toLowerCase().includes(q);
+          if (!matchDesc && !matchLoc) return false;
+        }
+        return true;
       });
       setReports(fallback);
+      setTotalCount(fallback.length);
     } finally {
       setLoading(false);
     }
-  }, [flaggedOnly, hazards]);
+  }, [page, pageSize, flaggedOnly, statusFilter, categoryFilter, searchQuery, ordering, hazards]);
+
+  const clearFilters = () => {
+    setFlaggedOnly(false);
+    setStatusFilter('all');
+    setCategoryFilter('all');
+    setSearchQuery('');
+    setOrdering('-flags_count');
+    setPage(1);
+  };
+
+  const hasActiveFilters =
+    flaggedOnly ||
+    statusFilter !== 'all' ||
+    categoryFilter !== 'all' ||
+    searchQuery.trim() !== '' ||
+    ordering !== '-flags_count';
 
   useEffect(() => {
     loadQueueData();
@@ -127,10 +170,11 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
 
   const isWide = windowWidth > 500;
 
-  const pendingCount = stats?.pending_count ?? hazards.filter((h) => h.status === 'under_review' || h.status === 'reported').length;
-  const confirmedCount = stats?.confirmed_count ?? hazards.filter((h) => h.status === 'community_confirmed').length;
-  const flaggedCount = stats?.flagged_count ?? hazards.filter((h) => (h.flags_count || 0) > 0).length;
-  const resolvedCount = stats?.resolved_count ?? hazards.filter((h) => h.status === 'resolved').length;
+  const pendingCount = stats?.active_reported ?? stats?.pending_count ?? hazards.filter((h) => h.status === 'reported').length;
+  const underReviewCount = stats?.under_review ?? hazards.filter((h) => h.status === 'under_review').length;
+  const confirmedCount = stats?.confirmed ?? stats?.confirmed_count ?? hazards.filter((h) => h.status === 'community_confirmed').length;
+  const flaggedCount = stats?.pending_flags ?? stats?.flagged_count ?? hazards.filter((h) => (h.flags_count || 0) > 0).length;
+  const resolvedCount = stats?.resolved ?? stats?.resolved_count ?? hazards.filter((h) => h.status === 'resolved').length;
 
   const renderCategoryIcon = (cat: string) => {
     switch (cat) {
@@ -226,39 +270,39 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
           ]}
         >
           <View style={styles.metricHeader}>
-            <Text style={[styles.metricLabel, { color: theme.textMuted }]}>PENDING REVIEW</Text>
-            <Clock size={15} color="#FB923C" />
-          </View>
-          <Text style={[styles.metricValue, { color: '#FB923C' }]}>{pendingCount}</Text>
-          <Text style={[styles.metricSub, { color: theme.textMuted }]}>Awaiting staff check</Text>
-        </View>
-
-        <View
-          style={[
-            styles.metricCard,
-            { width: isWide ? '23.5%' : '48%', backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <View style={styles.metricHeader}>
-            <Text style={[styles.metricLabel, { color: theme.textMuted }]}>CONFIRMED</Text>
-            <CheckCircle2 size={15} color={theme.teal} />
-          </View>
-          <Text style={[styles.metricValue, { color: theme.teal }]}>{confirmedCount}</Text>
-          <Text style={[styles.metricSub, { color: theme.textMuted }]}>Verified accurate</Text>
-        </View>
-
-        <View
-          style={[
-            styles.metricCard,
-            { width: isWide ? '23.5%' : '48%', backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <View style={styles.metricHeader}>
-            <Text style={[styles.metricLabel, { color: theme.textMuted }]}>FLAGGED</Text>
+            <Text style={[styles.metricLabel, { color: theme.textMuted }]}>PENDING FLAGS</Text>
             <AlertTriangle size={15} color="#DC2626" />
           </View>
           <Text style={[styles.metricValue, { color: '#DC2626' }]}>{flaggedCount}</Text>
-          <Text style={[styles.metricSub, { color: theme.textMuted }]}>Community concerns</Text>
+          <Text style={[styles.metricSub, { color: theme.textMuted }]}>Require urgent check</Text>
+        </View>
+
+        <View
+          style={[
+            styles.metricCard,
+            { width: isWide ? '23.5%' : '48%', backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <View style={styles.metricHeader}>
+            <Text style={[styles.metricLabel, { color: theme.textMuted }]}>UNDER REVIEW</Text>
+            <Clock size={15} color="#FB923C" />
+          </View>
+          <Text style={[styles.metricValue, { color: '#FB923C' }]}>{underReviewCount}</Text>
+          <Text style={[styles.metricSub, { color: theme.textMuted }]}>Investigating conditions</Text>
+        </View>
+
+        <View
+          style={[
+            styles.metricCard,
+            { width: isWide ? '23.5%' : '48%', backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <View style={styles.metricHeader}>
+            <Text style={[styles.metricLabel, { color: theme.textMuted }]}>ACTIVE REPORTED</Text>
+            <CheckCircle2 size={15} color={theme.teal} />
+          </View>
+          <Text style={[styles.metricValue, { color: theme.teal }]}>{pendingCount}</Text>
+          <Text style={[styles.metricSub, { color: theme.textMuted }]}>Ground observations</Text>
         </View>
 
         <View
@@ -278,9 +322,211 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
 
       {/* 3. Queue Report Feed */}
       <View style={styles.queueSection}>
-        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
-          Active Triage Queue ({reports.length})
-        </Text>
+        {/* Enhanced Moderation Filter Card */}
+        <View style={[styles.filterCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.filterCardHeader}>
+            <View style={styles.filterCardTitleRow}>
+              <View style={[styles.filterIconBadge, { backgroundColor: 'rgba(251, 191, 36, 0.15)' }]}>
+                <Filter size={14} color="#D97706" />
+              </View>
+              <View>
+                <Text style={[styles.filterCardTitle, { color: theme.textPrimary }]}>Queue Triage Filters</Text>
+                <Text style={[styles.filterCardSubtitle, { color: theme.textMuted }]}>
+                  Showing {reports.length} of {totalCount} incidents from live moderation queue
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.filterActionsRow}>
+              {hasActiveFilters && (
+                <TouchableOpacity
+                  style={[styles.clearFilterBtn, { borderColor: '#F87171', backgroundColor: isDark ? '#3D1B1B' : '#FEF2F2' }]}
+                  onPress={clearFilters}
+                  activeOpacity={0.7}
+                >
+                  <X size={11} color="#EF4444" />
+                  <Text style={styles.clearFilterText}>Reset</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                onPress={loadQueueData}
+                style={[styles.refreshIconBtn, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}
+                activeOpacity={0.7}
+              >
+                <RefreshCw size={12} color={theme.teal} />
+                <Text style={[styles.refreshText, { color: theme.teal }]}>Sync</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Search bar */}
+          <View style={[styles.searchInputWrapper, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
+            <Search size={14} color={theme.textMuted} />
+            <TextInput
+              style={[styles.searchInputText, { color: theme.textPrimary }]}
+              placeholder="Search landmark, street, or description..."
+              placeholderTextColor={theme.textMuted}
+              value={searchQuery}
+              onChangeText={(t) => {
+                setSearchQuery(t);
+                setPage(1);
+              }}
+              returnKeyType="search"
+            />
+            {searchQuery ? (
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery('');
+                  setPage(1);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <X size={14} color={theme.textMuted} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {/* Quick Filter: All vs Flagged Only */}
+          <View style={styles.flaggedToggleRow}>
+            <TouchableOpacity
+              style={[
+                styles.quickToggleChip,
+                !flaggedOnly
+                  ? [styles.quickToggleActive, { backgroundColor: theme.teal }]
+                  : [styles.quickToggleInactive, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }],
+              ]}
+              onPress={() => {
+                setFlaggedOnly(false);
+                setPage(1);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.quickToggleText, { color: !flaggedOnly ? '#FFFFFF' : theme.textSecondary }]}>
+                All Reports
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.quickToggleChip,
+                flaggedOnly
+                  ? [styles.quickToggleActive, { backgroundColor: '#DC2626' }]
+                  : [styles.quickToggleInactive, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }],
+              ]}
+              onPress={() => {
+                setFlaggedOnly(true);
+                setPage(1);
+              }}
+              activeOpacity={0.7}
+            >
+              <AlertTriangle size={12} color={flaggedOnly ? '#FFFFFF' : '#DC2626'} />
+              <Text style={[styles.quickToggleText, { color: flaggedOnly ? '#FFFFFF' : '#DC2626' }]}>
+                Flagged Only ({flaggedCount})
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Category Chips Scroller */}
+          <View style={styles.categoryChipsSection}>
+            <Text style={[styles.filterSectionLabel, { color: theme.textMuted }]}>CATEGORY</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryChipsScroll}>
+              {[
+                { id: 'all', label: 'All Categories' },
+                { id: 'pothole', label: 'Pothole' },
+                { id: 'flooding', label: 'Flooding' },
+                { id: 'blocked_road', label: 'Blocked Road' },
+                { id: 'fallen_tree', label: 'Fallen Tree' },
+                { id: 'street_light_out', label: 'Street Light Out' },
+                { id: 'dangerous_debris', label: 'Debris' },
+                { id: 'traffic_signal_failure', label: 'Traffic Signal' },
+                { id: 'construction_hazard', label: 'Construction' },
+                { id: 'other', label: 'Other' },
+              ].map((cat) => {
+                const isSelected = categoryFilter === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      styles.categoryChip,
+                      isSelected
+                        ? [styles.categoryChipActive, { backgroundColor: theme.teal, borderColor: theme.teal }]
+                        : [styles.categoryChipInactive, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }],
+                    ]}
+                    onPress={() => {
+                      setCategoryFilter(cat.id);
+                      setPage(1);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        { color: isSelected ? '#FFFFFF' : theme.textSecondary },
+                      ]}
+                    >
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Status Chips Scroller */}
+          <View style={styles.statusChipsSection}>
+            <Text style={[styles.filterSectionLabel, { color: theme.textMuted }]}>STATUS</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusChipsScroll}>
+              {[
+                { id: 'all', label: 'All Statuses' },
+                { id: 'under_review', label: 'Under Review' },
+                { id: 'reported', label: 'Reported' },
+                { id: 'community_confirmed', label: 'Confirmed' },
+                { id: 'resolved', label: 'Resolved' },
+                { id: 'rejected', label: 'Rejected' },
+              ].map((st) => {
+                const isSelected = statusFilter === st.id;
+                return (
+                  <TouchableOpacity
+                    key={st.id}
+                    style={[
+                      styles.statusChip,
+                      isSelected
+                        ? [styles.statusChipActive, { backgroundColor: isDark ? '#FFFFFF' : '#142B3B', borderColor: isDark ? '#FFFFFF' : '#142B3B' }]
+                        : [styles.statusChipInactive, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }],
+                    ]}
+                    onPress={() => {
+                      setStatusFilter(st.id);
+                      setPage(1);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.statusChipText,
+                        {
+                          color: isSelected
+                            ? isDark
+                              ? '#142B3B'
+                              : '#FFFFFF'
+                            : theme.textSecondary,
+                        },
+                      ]}
+                    >
+                      {st.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+
+        <View style={styles.sectionTitleRow}>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
+            Active Triage Queue ({totalCount})
+          </Text>
+        </View>
 
         {loading ? (
           <ActivityIndicator size="small" color={theme.teal} style={{ marginVertical: 24 }} />
@@ -396,6 +642,15 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
             </View>
           ))
         )}
+
+        <PaginationControlsNative
+          currentPage={page}
+          totalPages={Math.max(1, Math.ceil(totalCount / pageSize))}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={(p) => setPage(p)}
+          loading={loading}
+        />
       </View>
 
       {/* 4. Action Modal with Keyboard Avoidance */}
@@ -618,7 +873,151 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   queueSection: {
-    gap: 10,
+    gap: 12,
+  },
+  filterCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  filterCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  filterCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCardTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  filterCardSubtitle: {
+    fontSize: 10,
+    marginTop: 1,
+  },
+  filterActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  clearFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  clearFilterText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  refreshIconBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    gap: 8,
+  },
+  searchInputText: {
+    flex: 1,
+    fontSize: 12,
+    padding: 0,
+  },
+  flaggedToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  quickToggleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  quickToggleActive: {},
+  quickToggleInactive: {
+    borderWidth: 1,
+  },
+  quickToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  categoryChipsSection: {
+    gap: 6,
+  },
+  filterSectionLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  categoryChipsScroll: {
+    gap: 6,
+    paddingVertical: 2,
+  },
+  categoryChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  categoryChipActive: {},
+  categoryChipInactive: {},
+  categoryChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusChipsSection: {
+    gap: 6,
+  },
+  statusChipsScroll: {
+    gap: 6,
+    paddingVertical: 2,
+  },
+  statusChip: {
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  statusChipActive: {},
+  statusChipInactive: {},
+  statusChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
   },
   sectionTitle: {
     fontSize: 14,
