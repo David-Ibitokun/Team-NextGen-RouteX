@@ -34,11 +34,7 @@ import { RouteXLogoMark } from './RouteXLogoMark';
 export interface AppHeaderNativeProps {
   onRefresh?: () => void;
   refreshing?: boolean;
-  onOpenDashboard?: (type?: 'citizen' | 'moderator' | 'admin') => void;
-  onOpenCitizenDashboard?: () => void;
-  onOpenModeratorDashboard?: () => void;
-  onOpenAdminDashboard?: () => void;
-  activeDashboard?: 'citizen' | 'moderator' | 'admin' | null;
+  onOpenDashboard?: () => void;
   isDashboardActive?: boolean;
   onOpenAuth?: (initialMode?: 'login' | 'register') => void;
   onOpenNotifications?: () => void;
@@ -51,10 +47,6 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
   onRefresh,
   refreshing = false,
   onOpenDashboard,
-  onOpenCitizenDashboard,
-  onOpenModeratorDashboard,
-  onOpenAdminDashboard,
-  activeDashboard = null,
   isDashboardActive = false,
   onOpenAuth,
   onOpenNotifications,
@@ -88,33 +80,10 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
     }
   };
 
-  const handleCitizenDashboardPress = () => {
+  const handleDashboardPress = () => {
     closeMobileMenu();
-    if (onOpenCitizenDashboard) {
-      onOpenCitizenDashboard();
-    } else if (onOpenDashboard) {
-      onOpenDashboard('citizen');
-    }
-  };
-
-  // Safe alias for backward compatibility with existing or cached invocations
-  const handleDashboardPress = handleCitizenDashboardPress;
-
-  const handleModeratorDashboardPress = () => {
-    closeMobileMenu();
-    if (onOpenModeratorDashboard) {
-      onOpenModeratorDashboard();
-    } else if (onOpenDashboard) {
-      onOpenDashboard('moderator');
-    }
-  };
-
-  const handleAdminDashboardPress = () => {
-    closeMobileMenu();
-    if (onOpenAdminDashboard) {
-      onOpenAdminDashboard();
-    } else if (onOpenDashboard) {
-      onOpenDashboard('admin');
+    if (onOpenDashboard) {
+      onOpenDashboard();
     }
   };
 
@@ -205,7 +174,7 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
           </TouchableOpacity>
 
           {/* Primary Report Action Button (like Web App) */}
-          {onOpenReport && (
+          {/* {onOpenReport && (
             <TouchableOpacity
               onPress={handleReportPress}
               activeOpacity={0.8}
@@ -216,7 +185,7 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
               <PlusCircle size={14} color="#FFFFFF" strokeWidth={2.5} />
               <Text style={styles.reportBtnText}>Report</Text>
             </TouchableOpacity>
-          )}
+          )} */}
 
           {/* Mobile Menu Hamburger Toggle Button */}
           <TouchableOpacity
@@ -235,7 +204,6 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
       <Modal
         visible={mobileMenuOpen}
         transparent
-        statusBarTranslucent
         animationType="fade"
         onRequestClose={closeMobileMenu}
       >
@@ -257,65 +225,41 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
             <View style={styles.drawerNav}>
               {/* Citizen Dashboard */}
               <TouchableOpacity
-                style={[
-                  styles.navItem,
-                  (isDashboardActive && activeDashboard === 'citizen') && styles.navItemActive,
-                ]}
-                onPress={handleCitizenDashboardPress}
+                style={styles.navItem}
+                onPress={handleDashboardPress}
                 activeOpacity={0.7}
               >
                 <LayoutDashboard size={18} color="#2DD4BF" />
                 <Text style={[styles.navItemText, { color: '#2DD4BF' }]}>
                   Citizen Dashboard
                 </Text>
-                {isDashboardActive && activeDashboard === 'citizen' && (
-                  <View style={styles.activePill}>
-                    <Text style={styles.activePillText}>Active</Text>
-                  </View>
-                )}
               </TouchableOpacity>
 
               {/* Moderator Queue (if Moderator or Admin) */}
               {isModerator && (
                 <TouchableOpacity
-                  style={[
-                    styles.navItem,
-                    (isDashboardActive && activeDashboard === 'moderator') && styles.navItemActive,
-                  ]}
-                  onPress={handleModeratorDashboardPress}
+                  style={styles.navItem}
+                  onPress={handleDashboardPress}
                   activeOpacity={0.7}
                 >
                   <Shield size={18} color="#FBBF24" />
                   <Text style={[styles.navItemText, { color: '#FBBF24' }]}>
                     Moderator Queue
                   </Text>
-                  {isDashboardActive && activeDashboard === 'moderator' && (
-                    <View style={[styles.activePill, { backgroundColor: 'rgba(251, 191, 36, 0.2)' }]}>
-                      <Text style={[styles.activePillText, { color: '#FBBF24' }]}>Active</Text>
-                    </View>
-                  )}
                 </TouchableOpacity>
               )}
 
               {/* Admin Operations (if Admin) */}
               {isAdmin && (
                 <TouchableOpacity
-                  style={[
-                    styles.navItem,
-                    (isDashboardActive && activeDashboard === 'admin') && styles.navItemActive,
-                  ]}
-                  onPress={handleAdminDashboardPress}
+                  style={styles.navItem}
+                  onPress={handleDashboardPress}
                   activeOpacity={0.7}
                 >
                   <Sliders size={18} color="#818CF8" />
                   <Text style={[styles.navItemText, { color: '#818CF8' }]}>
                     Admin Operations
                   </Text>
-                  {isDashboardActive && activeDashboard === 'admin' && (
-                    <View style={[styles.activePill, { backgroundColor: 'rgba(129, 140, 248, 0.2)' }]}>
-                      <Text style={[styles.activePillText, { color: '#818CF8' }]}>Active</Text>
-                    </View>
-                  )}
                 </TouchableOpacity>
               )}
 
@@ -582,24 +526,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
   },
-  navItemActive: {
-    backgroundColor: 'rgba(45, 212, 191, 0.1)',
-  },
   navItemText: {
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
-  },
-  activePill: {
-    backgroundColor: 'rgba(45, 212, 191, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  activePillText: {
-    color: '#2DD4BF',
-    fontSize: 10,
-    fontWeight: '800',
   },
   drawerFooter: {
     borderTopWidth: 1,
