@@ -8,6 +8,7 @@ import {
   Droplets,
   HelpCircle,
   Loader2,
+  Sliders,
   Sparkles,
   TreePine,
   X,
@@ -34,6 +35,11 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
   const [latitude, setLatitude] = useState(6.4531);
   const [longitude, setLongitude] = useState(3.3958);
 
+  // Manual Coordinates Input Toggle
+  const [showManualCoords, setShowManualCoords] = useState(false);
+  const [latInput, setLatInput] = useState("6.453100");
+  const [lngInput, setLngInput] = useState("3.395800");
+
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [optimizingPhoto, setOptimizingPhoto] = useState(false);
@@ -47,8 +53,35 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
   const handleLocationChange = (lat, lng) => {
     setLatitude(lat);
     setLongitude(lng);
-    if (errors.coordinates) {
-      setErrors((prev) => ({ ...prev, coordinates: null }));
+    setLatInput(Number(lat).toFixed(6));
+    setLngInput(Number(lng).toFixed(6));
+    if (errors.coordinates || errors.latitude || errors.longitude) {
+      setErrors((prev) => ({
+        ...prev,
+        coordinates: null,
+        latitude: null,
+        longitude: null,
+      }));
+    }
+  };
+
+  const handleApplyManualCoords = () => {
+    const lat = parseFloat(latInput);
+    const lng = parseFloat(lngInput);
+    if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      setLatitude(lat);
+      setLongitude(lng);
+      setErrors((prev) => ({
+        ...prev,
+        coordinates: null,
+        latitude: null,
+        longitude: null,
+      }));
+    } else {
+      setErrors((prev) => ({
+        ...prev,
+        coordinates: "Please enter valid coordinates (-90 to 90 lat, -180 to 180 lng).",
+      }));
     }
   };
 
@@ -143,14 +176,15 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
         if (onSuccess) onSuccess(created);
       }, 1200);
     } catch (err) {
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        setServerError(
-          "You must be signed in to submit a hazard report. Please sign in and try again."
-        );
-      } else if (err.response && err.response.data) {
+      if (err.response?.data?.detail) {
+        setServerError(err.response.data.detail);
+      } else if (err.response && err.response.data && typeof err.response.data === "object") {
         setErrors(err.response.data);
+        const errorMessages = Object.entries(err.response.data)
+          .map(([field, msg]) => `${field}: ${Array.isArray(msg) ? msg.join(", ") : String(msg)}`)
+          .join(" | ");
         setServerError(
-          "Please correct the highlighted fields and try submitting again."
+          errorMessages || "Please correct the highlighted fields and try submitting again."
         );
       } else {
         setServerError(
@@ -270,17 +304,87 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
 
         {/* Map Location Picker */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-[#142B3B] dark:text-slate-200">
-            Location on map <span className="text-[#D64545]">*</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold text-[#142B3B] dark:text-slate-200">
+              Location on map <span className="text-[#D64545]">*</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowManualCoords((prev) => !prev)}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-[#087F8C] dark:text-teal-400 hover:underline"
+            >
+              <Sliders className="w-3 h-3" />
+              <span>{showManualCoords ? "Hide manual coordinates" : "Enter location manually"}</span>
+            </button>
+          </div>
           <LocationPickerMap
             latitude={latitude}
             longitude={longitude}
             onLocationChange={handleLocationChange}
             className="h-44 sm:h-52 w-full"
           />
+
+          {/* Collapsible Manual Coordinate Inputs */}
+          {showManualCoords && (
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 mt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-[#142B3B] dark:text-slate-200">
+                  Manual Coordinates (Decimal Degrees)
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  Current: {Number(latitude).toFixed(6)}, {Number(longitude).toFixed(6)}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                <div className="sm:col-span-2">
+                  <label htmlFor="manualLat" className="block text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">
+                    Latitude (-90 to 90)
+                  </label>
+                  <input
+                    id="manualLat"
+                    type="number"
+                    step="any"
+                    value={latInput}
+                    onChange={(e) => setLatInput(e.target.value)}
+                    placeholder="e.g. 6.453100"
+                    className="w-full text-xs font-mono p-2 bg-white dark:bg-[#1B3142] border border-[#DCE4E8] dark:border-slate-700 text-[#142B3B] dark:text-slate-100 rounded-lg focus:outline-none focus:border-[#087F8C]"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label htmlFor="manualLng" className="block text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">
+                    Longitude (-180 to 180)
+                  </label>
+                  <input
+                    id="manualLng"
+                    type="number"
+                    step="any"
+                    value={lngInput}
+                    onChange={(e) => setLngInput(e.target.value)}
+                    placeholder="e.g. 3.395800"
+                    className="w-full text-xs font-mono p-2 bg-white dark:bg-[#1B3142] border border-[#DCE4E8] dark:border-slate-700 text-[#142B3B] dark:text-slate-100 rounded-lg focus:outline-none focus:border-[#087F8C]"
+                  />
+                </div>
+                <div className="sm:col-span-1 flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleApplyManualCoords}
+                    className="w-full py-2 px-3 text-xs font-semibold text-white bg-[#087F8C] hover:bg-[#0aa3b3] rounded-lg transition-colors shadow-xs"
+                  >
+                    Set Pin
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {errors.coordinates && (
             <p className="text-xs text-[#D64545] mt-1">{errors.coordinates}</p>
+          )}
+          {errors.latitude && (
+            <p className="text-xs text-[#D64545] mt-1">Latitude: {Array.isArray(errors.latitude) ? errors.latitude[0] : errors.latitude}</p>
+          )}
+          {errors.longitude && (
+            <p className="text-xs text-[#D64545] mt-1">Longitude: {Array.isArray(errors.longitude) ? errors.longitude[0] : errors.longitude}</p>
           )}
         </div>
 

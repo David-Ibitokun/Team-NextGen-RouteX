@@ -34,7 +34,7 @@ import { RouteXLogoMark } from './RouteXLogoMark';
 export interface AppHeaderNativeProps {
   onRefresh?: () => void;
   refreshing?: boolean;
-  onOpenDashboard?: () => void;
+  onOpenDashboard?: (role?: 'citizen' | 'moderator' | 'admin') => void;
   isDashboardActive?: boolean;
   onOpenAuth?: (initialMode?: 'login' | 'register') => void;
   onOpenNotifications?: () => void;
@@ -80,10 +80,10 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
     }
   };
 
-  const handleDashboardPress = () => {
+  const handleDashboardPress = (role?: 'citizen' | 'moderator' | 'admin') => {
     closeMobileMenu();
     if (onOpenDashboard) {
-      onOpenDashboard();
+      onOpenDashboard(role);
     }
   };
 
@@ -226,7 +226,7 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
               {/* Citizen Dashboard */}
               <TouchableOpacity
                 style={styles.navItem}
-                onPress={handleDashboardPress}
+                onPress={() => handleDashboardPress('citizen')}
                 activeOpacity={0.7}
               >
                 <LayoutDashboard size={18} color="#2DD4BF" />
@@ -239,7 +239,7 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
               {isModerator && (
                 <TouchableOpacity
                   style={styles.navItem}
-                  onPress={handleDashboardPress}
+                  onPress={() => handleDashboardPress('moderator')}
                   activeOpacity={0.7}
                 >
                   <Shield size={18} color="#FBBF24" />
@@ -253,7 +253,7 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
               {isAdmin && (
                 <TouchableOpacity
                   style={styles.navItem}
-                  onPress={handleDashboardPress}
+                  onPress={() => handleDashboardPress('admin')}
                   activeOpacity={0.7}
                 >
                   <Sliders size={18} color="#818CF8" />

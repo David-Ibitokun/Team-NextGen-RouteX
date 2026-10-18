@@ -20,7 +20,7 @@ import { NativeMapScreen } from './src/components/NativeMapScreen';
 import { CitizenDashboardNative } from './src/components/CitizenDashboardNative';
 import { ModeratorDashboardNative } from './src/components/ModeratorDashboardNative';
 import { AdminDashboardNative } from './src/components/AdminDashboardNative';
-import { ReportModalNative } from './src/components/ReportModalNative';
+import { ReportScreenNative } from './src/components/ReportScreenNative';
 import { AuthModalNative } from './src/components/AuthModalNative';
 import { NotificationsModalNative } from './src/components/NotificationsModalNative';
 import { HazardListSkeletonNative } from './src/components/HazardSkeletonNative';
@@ -47,7 +47,6 @@ function RouteXNativeMain() {
   const [selectedStatus, setSelectedStatus] = useState('all');
 
   // Modals
-  const [showReportModal, setShowReportModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
@@ -121,8 +120,8 @@ function RouteXNativeMain() {
         setShowAuthModal(false);
         return true;
       }
-      if (showReportModal) {
-        setShowReportModal(false);
+      if (activeTab === 'report') {
+        setActiveTab('list');
         return true;
       }
       if (activeTab !== 'list') {
@@ -138,14 +137,10 @@ function RouteXNativeMain() {
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [showReportModal, showAuthModal, showNotificationsModal, activeTab]);
+  }, [showAuthModal, showNotificationsModal, activeTab]);
 
   const handleTabChange = (tab: ActiveTab) => {
-    if (tab === 'report') {
-      setShowReportModal(true);
-    } else {
-      setActiveTab(tab);
-    }
+    setActiveTab(tab);
   };
 
   const handleConfirm = async (id: string | number) => {
@@ -167,6 +162,40 @@ function RouteXNativeMain() {
     }
   };
 
+  if (activeTab === 'report') {
+    return (
+      <SafeAreaView
+        style={[styles.root, { backgroundColor: theme.headerBg }]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={theme.headerBg}
+          hidden={false}
+          translucent={false}
+        />
+        <ReportScreenNative
+          onSuccess={() => {
+            setActiveTab('list');
+            loadData();
+            refreshNotificationsCount();
+          }}
+          onCancel={() => setActiveTab('list')}
+          onOpenAuth={(mode = 'login') => {
+            setAuthMode(mode);
+            setShowAuthModal(true);
+          }}
+        />
+        {/* Authentication Modal */}
+        <AuthModalNative
+          visible={showAuthModal}
+          initialMode={authMode}
+          onClose={() => setShowAuthModal(false)}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView
       style={[styles.root, { backgroundColor: theme.headerBg }]}
@@ -183,23 +212,10 @@ function RouteXNativeMain() {
       <AppHeaderNative
         onRefresh={onRefresh}
         refreshing={refreshing}
-        onOpenDashboard={(type = 'citizen') => {
-          setActiveDashboard(type);
-          setActiveTab(activeTab === 'dashboard' && activeDashboard === type ? 'list' : 'dashboard');
-        }}
-        onOpenCitizenDashboard={() => {
-          setActiveDashboard('citizen');
+        onOpenDashboard={(role: 'citizen' | 'moderator' | 'admin' = 'citizen') => {
+          setActiveDashboard(role);
           setActiveTab('dashboard');
         }}
-        onOpenModeratorDashboard={() => {
-          setActiveDashboard('moderator');
-          setActiveTab('dashboard');
-        }}
-        onOpenAdminDashboard={() => {
-          setActiveDashboard('admin');
-          setActiveTab('dashboard');
-        }}
-        activeDashboard={activeTab === 'dashboard' ? activeDashboard : null}
         isDashboardActive={activeTab === 'dashboard'}
         onOpenAuth={(mode = 'login') => {
           setAuthMode(mode);
@@ -207,7 +223,7 @@ function RouteXNativeMain() {
         }}
         onOpenNotifications={() => setShowNotificationsModal(true)}
         unreadNotificationsCount={unreadNotificationsCount}
-        onOpenReport={() => setShowReportModal(true)}
+        onOpenReport={() => setActiveTab('report')}
         onOpenMap={() => setActiveTab('map')}
       />
 
@@ -270,7 +286,7 @@ function RouteXNativeMain() {
             {activeDashboard === 'moderator' ? (
               <ModeratorDashboardNative
                 hazards={hazards}
-                onOpenReport={() => setShowReportModal(true)}
+                onOpenReport={() => setActiveTab('report')}
                 onOpenMap={() => setActiveTab('map')}
                 onOpenAuth={() => {
                   setAuthMode('login');
@@ -280,13 +296,13 @@ function RouteXNativeMain() {
             ) : activeDashboard === 'admin' ? (
               <AdminDashboardNative
                 hazards={hazards}
-                onOpenReport={() => setShowReportModal(true)}
+                onOpenReport={() => setActiveTab('report')}
                 onOpenMap={() => setActiveTab('map')}
               />
             ) : (
               <CitizenDashboardNative
                 hazards={hazards}
-                onOpenReport={() => setShowReportModal(true)}
+                onOpenReport={() => setActiveTab('report')}
                 onOpenMap={() => setActiveTab('map')}
                 onOpenAuth={() => {
                   setAuthMode('login');
@@ -349,21 +365,6 @@ function RouteXNativeMain() {
 
       {/* Bottom Navigation with Center Report FAB */}
       <MobileBottomNavNative activeTab={activeTab} onTabChange={handleTabChange} />
-
-      {/* Report Modal */}
-      <ReportModalNative
-        visible={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        onSuccess={() => {
-          setShowReportModal(false);
-          loadData();
-          refreshNotificationsCount();
-        }}
-        onOpenAuth={(mode = 'login') => {
-          setAuthMode(mode);
-          setShowAuthModal(true);
-        }}
-      />
 
       {/* Authentication Modal */}
       <AuthModalNative

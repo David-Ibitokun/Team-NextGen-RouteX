@@ -20,6 +20,12 @@ from .serializers import (
     HazardFlagSerializer,
 )
 
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+    def enforce_csrf(self, request):
+        return  # Allow mobile and web clients to submit and confirm reports without CSRF failures
+
 class ConfirmationResponseSerializer(drf_serializers.Serializer):
     message = drf_serializers.CharField()
     confirmations_count = drf_serializers.IntegerField()
@@ -95,7 +101,7 @@ class ConfirmationResponseSerializer(drf_serializers.Serializer):
         summary="Submit a new road hazard report",
         description=(
             "Submit a community hazard report with category, location coordinates, optional street landmark, "
-            "description, and optional photo file (JPEG, PNG, WebP up to 5MB). Requires authentication."
+            "description, and optional photo file (JPEG, PNG, WebP up to 5MB)."
         ),
     ),
 )
@@ -106,7 +112,8 @@ class HazardReportViewSet(viewsets.ModelViewSet):
     """
     serializer_class = HazardReportSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    authentication_classes = [CsrfExemptSessionAuthentication, BasicAuthentication]
+    permission_classes = [AllowAny]
     http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
@@ -174,23 +181,43 @@ class HazardReportViewSet(viewsets.ModelViewSet):
         request=None,
         responses={200: ConfirmationResponseSerializer},
     )
-    @action(detail=True, methods=["post"], url_path="confirm", permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=["post"], url_path="confirm", permission_classes=[AllowAny])
     def confirm(self, request, pk=None):
         """Confirm that a hazard remains present at this location."""
         report = self.get_object()
-        user = request.user
+        user = request.user if request.user.is_authenticated else None
 
-        # Prevent duplicate confirmation from same user
-        if Confirmation.objects.filter(report=report, user=user).exists():
-            return Response(
-                {"detail": "You have already confirmed this hazard report."},
-                status=status.HTTP_400_BAD_REQUEST,
+        # Prevent duplicate confirmation
+        if user:
+            if Confirmation.objects.filter(report=report, user=user).exists():
+                return Response(
+                    {"detail": "You have already confirmed this hazard report."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            Confirmation.objects.create(
+                report=report,
+                user=user,
             )
+        else:
+            session_key = request.session.session_key
+            if not session_key:
+                try:
+                    request.session.save()
+                    session_key = request.session.session_key
+                except Exception:
+                    session_key = None
 
-        Confirmation.objects.create(
-            report=report,
-            user=user,
-        )
+            client_id = session_key or request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", "guest"))
+            if Confirmation.objects.filter(report=report, session_key=client_id).exists():
+                return Response(
+                    {"detail": "You have already confirmed this hazard report."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            Confirmation.objects.create(
+                report=report,
+                user=None,
+                session_key=client_id,
+            )
 
         # Update counter and check threshold (3 confirmations = community_confirmed)
         CONFIRMATION_THRESHOLD = 3
@@ -212,19 +239,20 @@ class HazardReportViewSet(viewsets.ModelViewSet):
     @extend_schema(
         tags=["hazards"],
         summary="Flag a hazard report",
-        description="Submit a moderation flag if a report is cleared, inaccurate, a duplicate, or abusive. Requires authentication.",
+        description="Submit a moderation flag if a report is cleared, inaccurate, a duplicate, or abusive.",
         request=HazardFlagSerializer,
         responses={201: HazardFlagSerializer},
     )
-    @action(detail=True, methods=["post"], url_path="flags", permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=["post"], url_path="flags", permission_classes=[AllowAny])
     def flag(self, request, pk=None):
         """Flag a report for moderator review."""
         report = self.get_object()
+        user = request.user if request.user.is_authenticated else None
         reason = request.data.get("reason", "other")
         notes = request.data.get("notes", "")
 
         # Prevent duplicate pending flag on same report by same user
-        if HazardFlag.objects.filter(report=report, reporter=request.user, status="pending").exists():
+        if user and HazardFlag.objects.filter(report=report, reporter=user, status="pending").exists():
             return Response(
                 {"detail": "You have already submitted a pending flag for this report."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -232,7 +260,7 @@ class HazardReportViewSet(viewsets.ModelViewSet):
 
         flag_instance = HazardFlag.objects.create(
             report=report,
-            reporter=request.user,
+            reporter=user,
             reason=reason,
             notes=notes,
         )

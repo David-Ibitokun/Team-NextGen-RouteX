@@ -57,8 +57,8 @@ class HazardReportTests(TestCase):
         self.assertEqual(detail_res.status_code, status.HTTP_200_OK)
         self.assertEqual(detail_res.data["location_label"], "Marina, Lagos Island")
 
-    def test_anonymous_cannot_create_reports(self):
-        """Criterion 9: Anonymous users cannot create reports."""
+    def test_anonymous_can_create_reports(self):
+        """Anonymous/guest users can submit valid hazard reports without logging in."""
         url = reverse("hazard-list")
         payload = {
             "category": "pothole",
@@ -68,7 +68,22 @@ class HazardReportTests(TestCase):
             "longitude": "3.371800",
         }
         response = self.client.post(url, payload, format="json")
-        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["category"], "pothole")
+        new_report = HazardReport.objects.get(pk=response.data["id"])
+        self.assertIsNone(new_report.reporter)
+
+    def test_anonymous_can_confirm_report(self):
+        """Anonymous/guest users can confirm reports, with session deduplication."""
+        url = reverse("hazard-confirm", kwargs={"pk": self.report.pk})
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["confirmations_count"], 1)
+
+        # Repeated confirmation from same session client is rejected
+        dup_res = self.client.post(url)
+        self.assertEqual(dup_res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("already confirmed", dup_res.data["detail"])
 
     def test_authenticated_can_create_valid_report_and_ownership_assigned(self):
         """Criteria 10 & 13: Authenticated user creates report and ownership is assigned by backend."""

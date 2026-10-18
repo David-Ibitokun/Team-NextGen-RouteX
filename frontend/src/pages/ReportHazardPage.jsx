@@ -28,38 +28,27 @@ export function ReportHazardPage() {
 
         {loading ? (
           <LoadingState message="Checking session status..." />
-        ) : !user ? (
-          <div className="bg-white dark:bg-[#142533] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center space-y-4 shadow-sm">
-            <div className="w-12 h-12 rounded-full bg-teal-50 dark:bg-teal-950/60 text-[#087F8C] dark:text-teal-400 flex items-center justify-center mx-auto">
-              <Shield className="w-6 h-6" />
-            </div>
-            <h2 className="text-xl font-bold text-[#142B3B] dark:text-white">
-              Sign in to report a road hazard
-            </h2>
-            <p className="text-xs text-[#667784] dark:text-slate-300 max-w-md mx-auto leading-relaxed">
-              RouteX requires an account to submit hazard reports to maintain community trust, prevent abuse, and allow updates to be tracked transparently.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              <Link
-                to="/login?next=/report"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 text-xs font-semibold text-white bg-[#087F8C] hover:bg-[#0aa3b3] rounded-lg shadow-sm transition-all"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>Sign in</span>
-              </Link>
-              <Link
-                to="/register?next=/report"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 text-xs font-semibold text-[#142B3B] dark:text-slate-200 bg-white dark:bg-[#1B3142] hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg shadow-xs transition-all"
-              >
-                <span>Create an account</span>
-              </Link>
-            </div>
-          </div>
         ) : (
-          <ReportHazardForm
-            onSuccess={() => navigate("/map")}
-            onCancel={() => navigate("/map")}
-          />
+          <div className="space-y-4">
+            {!user && (
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs text-amber-800 dark:text-amber-200">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>
+                    Reporting as a community guest.{" "}
+                    <Link to="/login?next=/report" className="underline font-semibold hover:text-amber-950 dark:hover:text-white">
+                      Sign in
+                    </Link>{" "}
+                    to track your reports on your citizen dashboard.
+                  </span>
+                </div>
+              </div>
+            )}
+            <ReportHazardForm
+              onSuccess={() => navigate("/map")}
+              onCancel={() => navigate("/map")}
+            />
+          </div>
         )}
       </main>
     </div>
