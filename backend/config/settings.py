@@ -59,6 +59,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "drf_spectacular",
+    "cloudinary_storage",
+    "cloudinary",
     # RouteX domain apps
     "apps.common.apps.CommonConfig",
     "apps.accounts.apps.AccountsConfig",
@@ -156,6 +158,24 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = os.environ.get("MEDIA_URL", "/media/")
 MEDIA_ROOT = BASE_DIR / "media"
 MAX_UPLOAD_SIZE_MB = int(os.environ.get("MAX_UPLOAD_SIZE_MB", 5))
+
+# Cloudinary Storage Configuration
+# When CLOUDINARY_URL is configured (and not running unit tests), use Cloudinary for media storage
+CLOUDINARY_CONFIGURED = bool(os.environ.get("CLOUDINARY_URL"))
+if CLOUDINARY_CONFIGURED and "test" not in sys.argv:
+    CLOUDINARY_STORAGE = {
+        "PREFIX": "routex_media/",
+        "MEDIA_TAG": "routex_media",
+    }
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
