@@ -29,7 +29,7 @@ export const RouteXHeader: React.FC<RouteXHeaderProps> = ({
         </View>
         <View style={styles.textGroup}>
           <Text style={styles.brandTitle}>RouteX</Text>
-          <Text style={styles.brandTagline}>Know the Road Ahead.</Text>
+          {/* <Text style={styles.brandTagline}>Know the Road Ahead.</Text> */}
         </View>
       </View>
 

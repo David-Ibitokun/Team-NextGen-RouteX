@@ -275,10 +275,7 @@ export function AdminDashboardPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Header Bar */}
         <div className="bg-white dark:bg-[#142533] p-6 md:p-8 rounded-2xl border border-[#DCE4E8] dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/50">
-              <Sliders className="w-8 h-8" />
-            </div>
+          <div className="flex items-start">
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#142B3B] dark:text-white">
@@ -371,7 +368,8 @@ export function AdminDashboardPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center border-b border-[#DCE4E8] dark:border-slate-800 space-x-6 text-sm font-semibold">
+        <div className="overflow-x-auto border-b border-[#DCE4E8] dark:border-slate-800">
+          <div className="flex w-max min-w-full items-center space-x-6 text-sm font-semibold">
           <button
             onClick={() => setActiveTab("users")}
             className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${
@@ -380,7 +378,7 @@ export function AdminDashboardPage() {
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
-            <Users className="w-4 h-4" />
+            {/* <Users className="w-4 h-4" /> */}
             User & Role Management ({users.length})
           </button>
 
@@ -392,7 +390,7 @@ export function AdminDashboardPage() {
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
-            <Settings className="w-4 h-4" />
+            {/* <Settings className="w-4 h-4" /> */}
             Operational Platform Settings
           </button>
 
@@ -404,9 +402,10 @@ export function AdminDashboardPage() {
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
-            <FileText className="w-4 h-4" />
+            {/* <FileText className="w-4 h-4" /> */}
             System Audit Trail
           </button>
+          </div>
         </div>
 
         {/* Tab 1: User & Role Management */}
@@ -460,7 +459,7 @@ export function AdminDashboardPage() {
             {!loadingUsers && users.length > 0 && (
               <div className="bg-white dark:bg-[#142533] rounded-2xl border border-[#DCE4E8] dark:border-slate-800 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full min-w-[760px] text-left text-xs">
                     <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
                       <tr>
                         <th className="px-5 py-3.5">User</th>

@@ -1,101 +1,457 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Sun, Moon, RotateCw, LayoutDashboard } from 'lucide-react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  Animated,
+} from 'react-native';
+import {
+  Sun,
+  Moon,
+  RotateCw,
+  LayoutDashboard,
+  Bell,
+  Menu,
+  X,
+  PlusCircle,
+  MapPin,
+  Shield,
+  Sliders,
+  LogOut,
+  UserCircle,
+  CheckCircle2,
+} from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { BRAND } from '../theme/colors';
 import { RouteXLogoMark } from './RouteXLogoMark';
 
-interface AppHeaderNativeProps {
+export interface AppHeaderNativeProps {
   onRefresh?: () => void;
   refreshing?: boolean;
-  onOpenDashboard?: () => void;
+  onOpenDashboard?: (type?: 'citizen' | 'moderator' | 'admin') => void;
+  onOpenCitizenDashboard?: () => void;
+  onOpenModeratorDashboard?: () => void;
+  onOpenAdminDashboard?: () => void;
+  activeDashboard?: 'citizen' | 'moderator' | 'admin' | null;
   isDashboardActive?: boolean;
+  onOpenAuth?: (initialMode?: 'login' | 'register') => void;
+  onOpenNotifications?: () => void;
+  unreadNotificationsCount?: number;
+  onOpenReport?: () => void;
+  onOpenMap?: () => void;
 }
 
 export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
   onRefresh,
-  refreshing,
+  refreshing = false,
   onOpenDashboard,
+  onOpenCitizenDashboard,
+  onOpenModeratorDashboard,
+  onOpenAdminDashboard,
+  activeDashboard = null,
   isDashboardActive = false,
+  onOpenAuth,
+  onOpenNotifications,
+  unreadNotificationsCount = 0,
+  onOpenReport,
+  onOpenMap,
 }) => {
   const { isDark, toggleTheme, theme } = useTheme();
+  const { user, isAuthenticated, isAdmin, isModerator, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const toggleMobileMenu = () => setMobileMenuOpen((prev) => !prev);
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  const handleSignOut = () => {
+    closeMobileMenu();
+    Alert.alert('Sign Out', 'Are you sure you want to sign out of RouteX?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: () => logout(),
+      },
+    ]);
+  };
+
+  const handleReportPress = () => {
+    closeMobileMenu();
+    if (onOpenReport) {
+      onOpenReport();
+    }
+  };
+
+  const handleCitizenDashboardPress = () => {
+    closeMobileMenu();
+    if (onOpenCitizenDashboard) {
+      onOpenCitizenDashboard();
+    } else if (onOpenDashboard) {
+      onOpenDashboard('citizen');
+    }
+  };
+
+  // Safe alias for backward compatibility with existing or cached invocations
+  const handleDashboardPress = handleCitizenDashboardPress;
+
+  const handleModeratorDashboardPress = () => {
+    closeMobileMenu();
+    if (onOpenModeratorDashboard) {
+      onOpenModeratorDashboard();
+    } else if (onOpenDashboard) {
+      onOpenDashboard('moderator');
+    }
+  };
+
+  const handleAdminDashboardPress = () => {
+    closeMobileMenu();
+    if (onOpenAdminDashboard) {
+      onOpenAdminDashboard();
+    } else if (onOpenDashboard) {
+      onOpenDashboard('admin');
+    }
+  };
+
+  const handleMapPress = () => {
+    closeMobileMenu();
+    if (onOpenMap) {
+      onOpenMap();
+    }
+  };
+
+  const handleAuthPress = (mode: 'login' | 'register' = 'login') => {
+    closeMobileMenu();
+    if (onOpenAuth) {
+      onOpenAuth(mode);
+    }
+  };
+
+  const handleRefreshPress = () => {
+    closeMobileMenu();
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.headerBg, borderBottomColor: theme.border }]}>
-      <View style={styles.brandRow}>
-        <RouteXLogoMark size={34} />
-        <View style={styles.titleCol}>
-          <Text style={[styles.brandTitle, { color: theme.headerText }]}>{BRAND.name}</Text>
-          <Text style={[styles.tagline, { color: isDark ? '#94A3B8' : '#B2C5D4' }]}>{BRAND.tagline}</Text>
+    <>
+      {/* Sticky Main Header Bar matching Web App styling */}
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.headerBg,
+            borderBottomColor: isDark ? '#1E3342' : '#2A4356',
+          },
+        ]}
+      >
+        {/* Left: Brand with Logo & Tagline */}
+        <TouchableOpacity
+          style={styles.brandRow}
+          onPress={() => {
+            if (isDashboardActive && onOpenDashboard) {
+              onOpenDashboard();
+            } else if (onOpenMap) {
+              onOpenMap();
+            }
+          }}
+          activeOpacity={0.8}
+        >
+          <RouteXLogoMark size={32} />
+          <View style={styles.titleCol}>
+            <View style={styles.brandNameRow}>
+              <Text style={styles.brandTitle}>{BRAND.name}</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Right Action Cluster */}
+        <View style={styles.actionsRow}>
+          {/* Notifications Bell */}
+          {onOpenNotifications && (
+            <TouchableOpacity
+              onPress={onOpenNotifications}
+              activeOpacity={0.7}
+              style={styles.iconBtn}
+              accessibilityLabel="Notifications"
+              accessibilityRole="button"
+            >
+              <Bell size={16} color="#E2E8F0" />
+              {unreadNotificationsCount > 0 && (
+                <View style={[styles.badgeIndicator, { backgroundColor: theme.teal }]}>
+                  <Text style={styles.badgeText}>
+                    {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Theme Toggle Button */}
+          <TouchableOpacity
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+            style={styles.iconBtn}
+            accessibilityLabel={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+            accessibilityRole="button"
+          >
+            {isDark ? <Sun size={16} color="#F2B544" /> : <Moon size={16} color="#E2E8F0" />}
+          </TouchableOpacity>
+
+          {/* Primary Report Action Button (like Web App) */}
+          {onOpenReport && (
+            <TouchableOpacity
+              onPress={handleReportPress}
+              activeOpacity={0.8}
+              style={[styles.reportBtn, { backgroundColor: theme.teal }]}
+              accessibilityLabel="Report a hazard"
+              accessibilityRole="button"
+            >
+              <PlusCircle size={14} color="#FFFFFF" strokeWidth={2.5} />
+              <Text style={styles.reportBtnText}>Report</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Mobile Menu Hamburger Toggle Button */}
+          <TouchableOpacity
+            onPress={toggleMobileMenu}
+            activeOpacity={0.7}
+            style={styles.menuToggleBtn}
+            accessibilityLabel={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            accessibilityRole="button"
+          >
+            {mobileMenuOpen ? <X size={20} color="#FFFFFF" /> : <Menu size={20} color="#FFFFFF" />}
+          </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.actionsRow}>
-        {/* Dashboard Header Button */}
-        {onOpenDashboard && (
-          <TouchableOpacity
-            onPress={onOpenDashboard}
-            activeOpacity={0.7}
+      {/* Web App Style Mobile Drawer Dropdown Modal */}
+      <Modal
+        visible={mobileMenuOpen}
+        transparent
+        statusBarTranslucent
+        animationType="fade"
+        onRequestClose={closeMobileMenu}
+      >
+        <View style={styles.drawerOverlay}>
+          {/* Backdrop dismissal */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeMobileMenu} />
+
+          {/* Drawer Content Card attached under header */}
+          <View
             style={[
-              styles.dashboardBtn,
+              styles.drawerSheet,
               {
-                backgroundColor: isDashboardActive ? theme.teal : (isDark ? '#1C3144' : '#1D3B50'),
-                borderColor: isDashboardActive ? theme.tealDark : (isDark ? '#2E4C66' : '#2A4E68'),
+                backgroundColor: isDark ? '#0B161E' : '#142B3B',
+                borderColor: isDark ? '#1E3342' : '#2A4356',
               },
             ]}
-            accessibilityLabel="Open Dashboards"
-            accessibilityRole="button"
           >
-            <LayoutDashboard size={16} color={isDashboardActive ? '#FFFFFF' : theme.teal} />
-            <Text style={[styles.dashboardText, { color: isDashboardActive ? '#FFFFFF' : '#E2E8F0' }]}>
-              Dashboard
-            </Text>
-          </TouchableOpacity>
-        )}
+            {/* Top Navigation Links */}
+            <View style={styles.drawerNav}>
+              {/* Citizen Dashboard */}
+              <TouchableOpacity
+                style={[
+                  styles.navItem,
+                  (isDashboardActive && activeDashboard === 'citizen') && styles.navItemActive,
+                ]}
+                onPress={handleCitizenDashboardPress}
+                activeOpacity={0.7}
+              >
+                <LayoutDashboard size={18} color="#2DD4BF" />
+                <Text style={[styles.navItemText, { color: '#2DD4BF' }]}>
+                  Citizen Dashboard
+                </Text>
+                {isDashboardActive && activeDashboard === 'citizen' && (
+                  <View style={styles.activePill}>
+                    <Text style={styles.activePillText}>Active</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
 
-        {/* Theme Toggle Button with Lucide Icons */}
-        <TouchableOpacity
-          onPress={toggleTheme}
-          activeOpacity={0.7}
-          style={[
-            styles.iconBtn,
-            { backgroundColor: isDark ? '#1C3144' : '#1D3B50', borderColor: isDark ? '#2E4C66' : '#2A4E68' },
-          ]}
-          accessibilityLabel={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-          accessibilityRole="button"
-        >
-          {isDark ? (
-            <Sun size={18} color="#FBBF24" />
-          ) : (
-            <Moon size={18} color="#E2E8F0" />
-          )}
-        </TouchableOpacity>
+              {/* Moderator Queue (if Moderator or Admin) */}
+              {isModerator && (
+                <TouchableOpacity
+                  style={[
+                    styles.navItem,
+                    (isDashboardActive && activeDashboard === 'moderator') && styles.navItemActive,
+                  ]}
+                  onPress={handleModeratorDashboardPress}
+                  activeOpacity={0.7}
+                >
+                  <Shield size={18} color="#FBBF24" />
+                  <Text style={[styles.navItemText, { color: '#FBBF24' }]}>
+                    Moderator Queue
+                  </Text>
+                  {isDashboardActive && activeDashboard === 'moderator' && (
+                    <View style={[styles.activePill, { backgroundColor: 'rgba(251, 191, 36, 0.2)' }]}>
+                      <Text style={[styles.activePillText, { color: '#FBBF24' }]}>Active</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
 
-        {/* Refresh Button with Lucide RotateCw */}
-        {onRefresh && (
-          <TouchableOpacity
-            onPress={onRefresh}
-            activeOpacity={0.7}
-            disabled={refreshing}
-            style={[
-              styles.iconBtn,
-              { backgroundColor: isDark ? '#1C3144' : '#1D3B50', borderColor: isDark ? '#2E4C66' : '#2A4E68' },
-            ]}
-            accessibilityLabel="Refresh reports"
-            accessibilityRole="button"
-          >
-            <RotateCw size={17} color={refreshing ? '#64748B' : '#E2E8F0'} />
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
+              {/* Admin Operations (if Admin) */}
+              {isAdmin && (
+                <TouchableOpacity
+                  style={[
+                    styles.navItem,
+                    (isDashboardActive && activeDashboard === 'admin') && styles.navItemActive,
+                  ]}
+                  onPress={handleAdminDashboardPress}
+                  activeOpacity={0.7}
+                >
+                  <Sliders size={18} color="#818CF8" />
+                  <Text style={[styles.navItemText, { color: '#818CF8' }]}>
+                    Admin Operations
+                  </Text>
+                  {isDashboardActive && activeDashboard === 'admin' && (
+                    <View style={[styles.activePill, { backgroundColor: 'rgba(129, 140, 248, 0.2)' }]}>
+                      <Text style={[styles.activePillText, { color: '#818CF8' }]}>Active</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {/* Explore Map */}
+              {onOpenMap && (
+                <TouchableOpacity
+                  style={styles.navItem}
+                  onPress={handleMapPress}
+                  activeOpacity={0.7}
+                >
+                  <MapPin size={18} color="#E2E8F0" />
+                  <Text style={[styles.navItemText, { color: '#E2E8F0' }]}>
+                    Explore Map
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Refresh Feed */}
+              {onRefresh && (
+                <TouchableOpacity
+                  style={styles.navItem}
+                  onPress={handleRefreshPress}
+                  activeOpacity={0.7}
+                  disabled={refreshing}
+                >
+                  {refreshing ? (
+                    <ActivityIndicator size="small" color="#2DD4BF" />
+                  ) : (
+                    <RotateCw size={17} color="#94A3B8" />
+                  )}
+                  <Text style={[styles.navItemText, { color: '#94A3B8' }]}>
+                    {refreshing ? 'Updating Hazards...' : 'Refresh Hazards Feed'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Account & Profile Section */}
+            <View style={[styles.drawerFooter, { borderTopColor: isDark ? '#1E3342' : '#2A4356' }]}>
+              {isAuthenticated && user ? (
+                <>
+                  {/* Signed-in identity summary */}
+                  <View style={styles.userBanner}>
+                    <View style={[styles.userAvatar, { backgroundColor: theme.teal }]}>
+                      <Text style={styles.userAvatarText}>
+                        {(user.display_name || user.username).substring(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.userInfo}>
+                      <Text style={styles.userName} numberOfLines={1}>
+                        {user.display_name || user.username}
+                      </Text>
+                      <Text style={styles.userSub} numberOfLines={1}>
+                        {user.email || `@${user.username}`}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.roleBadge,
+                        {
+                          backgroundColor: isAdmin
+                            ? 'rgba(129, 140, 248, 0.2)'
+                            : isModerator
+                            ? 'rgba(251, 191, 36, 0.2)'
+                            : 'rgba(45, 212, 191, 0.2)',
+                          borderColor: isAdmin ? '#818CF8' : isModerator ? '#FBBF24' : '#2DD4BF',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.roleBadgeText,
+                          { color: isAdmin ? '#818CF8' : isModerator ? '#FBBF24' : '#2DD4BF' },
+                        ]}
+                      >
+                        {isAdmin ? 'ADMIN' : isModerator ? 'MOD' : 'CITIZEN'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Actions: Profile & Sign Out */}
+                  <TouchableOpacity
+                    style={styles.drawerActionBtn}
+                    onPress={() => handleAuthPress('login')}
+                    activeOpacity={0.7}
+                  >
+                    <UserCircle size={17} color="#2DD4BF" />
+                    <Text style={styles.drawerActionText}>Account Profile & Settings</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.drawerActionBtn, styles.signOutBtn]}
+                    onPress={handleSignOut}
+                    activeOpacity={0.7}
+                  >
+                    <LogOut size={17} color="#F87171" />
+                    <Text style={[styles.drawerActionText, { color: '#F87171' }]}>Sign Out</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  {/* Guest Commuter Banner */}
+                  <Text style={styles.guestNote}>
+                    Sign in to track your road reports and earn citizen badges.
+                  </Text>
+                  <View style={styles.guestActionsRow}>
+                    <TouchableOpacity
+                      style={styles.guestSignInBtn}
+                      onPress={() => handleAuthPress('login')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.guestSignInText}>Sign In</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.guestRegisterBtn, { backgroundColor: theme.teal }]}
+                      onPress={() => handleAuthPress('register')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.guestRegisterText}>Register</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -103,51 +459,244 @@ const styles = StyleSheet.create({
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 9,
   },
   titleCol: {
     justifyContent: 'center',
   },
+  brandNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   brandTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+    color: '#FFFFFF',
   },
   tagline: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '500',
+    color: '#94A3B8',
     marginTop: -1,
   },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 7,
   },
-  dashboardBtn: {
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+    position: 'relative',
+  },
+  badgeIndicator: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#142B3B',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  reportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     paddingVertical: 7,
-    borderRadius: 18,
-    borderWidth: 1,
+    borderRadius: 8,
+    shadowColor: '#087F8C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  dashboardText: {
+  reportBtnText: {
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
-  iconBtn: {
+  menuToggleBtn: {
+    width: 36,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  drawerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    paddingTop: 56,
+  },
+  drawerSheet: {
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 16,
+    gap: 12,
+  },
+  drawerNav: {
+    gap: 6,
+  },
+  navItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  navItemActive: {
+    backgroundColor: 'rgba(45, 212, 191, 0.1)',
+  },
+  navItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  activePill: {
+    backgroundColor: 'rgba(45, 212, 191, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  activePillText: {
+    color: '#2DD4BF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  drawerFooter: {
+    borderTopWidth: 1,
+    paddingTop: 12,
+    gap: 10,
+  },
+  userBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  userAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  userAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  userSub: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  roleBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
     borderWidth: 1,
+  },
+  roleBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  drawerActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  drawerActionText: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  signOutBtn: {
+    marginTop: 2,
+  },
+  guestNote: {
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  guestActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  guestSignInBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  guestSignInText: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  guestRegisterBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  guestRegisterText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

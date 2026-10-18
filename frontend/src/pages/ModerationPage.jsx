@@ -206,10 +206,7 @@ export function ModerationPage() {
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 lg:px-8 py-8 space-y-6">
         {/* Header Bar */}
         <div className="bg-white dark:bg-[#142533] p-6 md:p-8 rounded-2xl border border-[#DCE4E8] dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-900/50">
-              <Shield className="w-7 h-7" />
-            </div>
+          <div className="flex items-start">
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-2xl font-extrabold text-[#142B3B] dark:text-white">
@@ -294,7 +291,8 @@ export function ModerationPage() {
 
         {/* Tab & Filter Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-3">
-          <div className="flex items-center space-x-6 text-sm font-semibold">
+          <div className="overflow-x-auto">
+            <div className="flex w-max min-w-full items-center space-x-6 text-sm font-semibold">
             <button
               onClick={() => setActiveTab("queue")}
               className={`pb-2 flex items-center gap-2 border-b-2 transition-all ${
@@ -303,7 +301,7 @@ export function ModerationPage() {
                   : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
-              <AlertTriangle className="w-4 h-4" />
+              {/* <AlertTriangle className="w-4 h-4" /> */}
               Queue Reports ({reports.length})
             </button>
 
@@ -318,9 +316,10 @@ export function ModerationPage() {
                   : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
-              <History className="w-4 h-4" />
+              {/* <History className="w-4 h-4" /> */}
               Moderation Decision History
             </button>
+            </div>
           </div>
 
           {activeTab === "queue" && (
@@ -361,7 +360,7 @@ export function ModerationPage() {
                     key={report.id}
                     className="bg-white dark:bg-[#142533] p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-5 justify-between"
                   >
-                    <div className="space-y-3 flex-1">
+                    <div className="space-y-3 flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <CategoryBadge category={report.category} />
                         <FreshnessBadge info={report.freshness_info} />
@@ -409,34 +408,34 @@ export function ModerationPage() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex flex-row md:flex-col justify-end gap-2 shrink-0 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 pt-3 md:pt-0 md:pl-5">
+                    <div className="grid grid-cols-2 md:flex md:flex-col md:w-auto w-full justify-end gap-2 shrink-0 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 pt-3 md:pt-0 md:pl-5">
                       <button
                         onClick={() => handleOpenActionModal(report, "confirm")}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 border border-teal-200 dark:border-teal-800"
+                        className="w-full min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 border border-teal-200 dark:border-teal-800"
                       >
                         Confirm Hazard
                       </button>
                       <button
                         onClick={() => handleOpenActionModal(report, "review")}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 border border-amber-200 dark:border-amber-800"
+                        className="w-full min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 border border-amber-200 dark:border-amber-800"
                       >
                         Mark Under Review
                       </button>
                       <button
                         onClick={() => handleOpenActionModal(report, "resolve")}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800"
+                        className="w-full min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800"
                       >
                         Mark Resolved
                       </button>
                       <button
                         onClick={() => handleOpenActionModal(report, "reject")}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 border border-rose-200 dark:border-rose-800"
+                        className="w-full min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 border border-rose-200 dark:border-rose-800"
                       >
                         Reject / Dismiss
                       </button>
                       <button
                         onClick={() => handleViewReportHistory(report)}
-                        className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                        className="col-span-2 md:col-span-1 w-full min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                       >
                         View History
                       </button>

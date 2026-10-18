@@ -2,9 +2,10 @@
   "expo": {
     "name": "RouteX",
     "slug": "routex",
+    "scheme": "routex",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/adaptive-icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#142B3B",
     "ios": {
@@ -19,9 +20,8 @@
     "android": {
       "package": "org.routex.app",
       "adaptiveIcon": {
-        "backgroundColor": "#142B3B",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/adaptive-icon.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -29,11 +29,29 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "CAMERA",
-        "READ_EXTERNAL_STORAGE"
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "POST_NOTIFICATIONS"
       ]
     },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "RouteX requires access to your photos to attach evidence to road hazard reports.",
+          "cameraPermission": "RouteX requires camera access so you can photograph road hazards on the spot."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#087F8C"
+        }
+      ]
+    ],
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/images/favicon.png"
     }
   }
 }

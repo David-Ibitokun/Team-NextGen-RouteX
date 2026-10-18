@@ -1055,7 +1055,7 @@ export function LandingPage() {
               <ul className="space-y-1.5">
                 <li>
                   <a
-                    href="http://127.0.0.1:8000/api/docs/"
+                    href="/api/docs/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-white transition-colors flex items-center gap-1"

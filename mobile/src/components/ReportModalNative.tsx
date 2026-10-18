@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,10 @@ import {
   Image,
   Alert,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
+  useWindowDimensions,
+  Keyboard,
 } from 'react-native';
 import {
   X,
@@ -25,17 +29,23 @@ import {
   Sparkles,
   CheckCircle2,
   Navigation,
+  Sliders,
+  ShieldCheck,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../theme/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { HAZARD_CATEGORIES } from '../constants/hazardTypes';
 import { submitHazard } from '../services/hazardService';
+import { notifyHazardReported } from '../services/notificationService';
 import { RouteXLogoMark } from './RouteXLogoMark';
+import { LocationPickerMapNative } from './LocationPickerMapNative';
 
 interface ReportModalNativeProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  onOpenAuth?: (mode?: 'login' | 'register') => void;
 }
 
 const PRESET_CORRIDORS = [
@@ -46,8 +56,44 @@ const PRESET_CORRIDORS = [
   { name: 'Surulere', lat: 6.5012, lng: 3.3582, landmark: 'Western Avenue, Ojuelegba Flyover' },
 ];
 
-export const ReportModalNative: React.FC<ReportModalNativeProps> = ({ visible, onClose, onSuccess }) => {
+export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
+  visible,
+  onClose,
+  onSuccess,
+  onOpenAuth,
+}) => {
   const { isDark, theme } = useTheme();
+  const { isAuthenticated } = useAuth();
+  const { height: windowHeight } = useWindowDimensions();
+
+  // Dynamic keyboard inset tracking to prevent keyboard overlap on Android and iOS
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const modalMaxHeight = useMemo(() => {
+    if (keyboardHeight > 0) {
+      return Math.max(windowHeight - keyboardHeight - 16, 260);
+    }
+    return Math.min(windowHeight * 0.94, 820);
+  }, [windowHeight, keyboardHeight]);
 
   const [category, setCategory] = useState('flooding');
   const [locationName, setLocationName] = useState('');
@@ -55,6 +101,11 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({ visible, o
   const [latitude, setLatitude] = useState(6.4531);
   const [longitude, setLongitude] = useState(3.3958);
   const [activeCorridor, setActiveCorridor] = useState<string | null>(null);
+
+  // Manual Coordinates Input Toggle
+  const [showCoordinateInputs, setShowCoordinateInputs] = useState(false);
+  const [latInput, setLatInput] = useState('6.4531');
+  const [lngInput, setLngInput] = useState('3.3958');
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoName, setPhotoName] = useState<string | null>(null);
@@ -68,7 +119,10 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({ visible, o
     setDescription('');
     setLatitude(6.4531);
     setLongitude(3.3958);
+    setLatInput('6.4531');
+    setLngInput('3.3958');
     setActiveCorridor(null);
+    setShowCoordinateInputs(false);
     setPhotoUri(null);
     setPhotoName(null);
     setServerError('');
@@ -80,10 +134,27 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({ visible, o
     onClose();
   };
 
+  const handleLocationChange = (lat: number, lng: number) => {
+    setLatitude(lat);
+    setLongitude(lng);
+    setLatInput(lat.toFixed(5));
+    setLngInput(lng.toFixed(5));
+  };
+
+  const handleManualCoordApply = () => {
+    const lat = parseFloat(latInput);
+    const lng = parseFloat(lngInput);
+    if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      setLatitude(lat);
+      setLongitude(lng);
+    } else {
+      Alert.alert('Invalid Coordinates', 'Please enter valid latitude (-90 to 90) and longitude (-180 to 180).');
+    }
+  };
+
   const handleSelectCorridor = (corridor: typeof PRESET_CORRIDORS[0]) => {
     setActiveCorridor(corridor.name);
-    setLatitude(corridor.lat);
-    setLongitude(corridor.lng);
+    handleLocationChange(corridor.lat, corridor.lng);
     if (!locationName) {
       setLocationName(corridor.landmark);
     }
@@ -148,22 +219,34 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({ visible, o
     setSubmitting(true);
 
     try {
+      const submittedLocation = locationName.trim() || 'Reported Location';
       await submitHazard({
         category,
         description: description.trim(),
-        location_name: locationName.trim() || 'Reported Location',
+        location_name: submittedLocation,
         latitude,
         longitude,
         photoUri: photoUri || undefined,
       });
+
+      // Dispatch local notification
+      notifyHazardReported(submittedLocation, category).catch(() => {});
 
       setIsSuccess(true);
       setTimeout(() => {
         resetForm();
         onSuccess();
       }, 1400);
-    } catch {
-      setServerError('We could not save the report right now. Please check your network and try again.');
+    } catch (err: any) {
+      if (err?.status === 401 || err?.status === 403) {
+        setServerError('You must be signed in to submit a hazard report. Please sign in and try again.');
+      } else if (err?.data?.description) {
+        setServerError(Array.isArray(err.data.description) ? err.data.description[0] : String(err.data.description));
+      } else if (err?.data?.detail) {
+        setServerError(String(err.data.detail));
+      } else {
+        setServerError('We could not save the report right now. Please check your network and try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -191,346 +274,454 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({ visible, o
       visible={visible}
       animationType="slide"
       transparent={true}
+      statusBarTranslucent={true}
       onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          {/* Pinned Sticky Header */}
-          <View style={[styles.headerRow, { borderBottomColor: theme.borderSubtle, backgroundColor: theme.surface }]}>
-            <View style={styles.headerLeft}>
-              <RouteXLogoMark size={30} />
-              <View style={styles.headerMeta}>
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  Report a Road Hazard
-                </Text>
-                <Text style={[styles.modalSubtitle, { color: theme.textMuted }]}>
-                  Share timely road conditions to help fellow commuters.
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={handleClose}
-              style={styles.closeBtn}
-              accessibilityLabel="Close dialog"
-              activeOpacity={0.7}
-            >
-              <X size={20} color={theme.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Form Content / Success Screen */}
-          {isSuccess ? (
-            <View style={styles.successContainer}>
-              <View style={[styles.successIconBox, { backgroundColor: isDark ? '#143826' : '#DCFCE7' }]}>
-                <CheckCircle2 size={42} color="#16A34A" />
-              </View>
-              <Text style={[styles.successTitle, { color: theme.textPrimary }]}>Report Submitted</Text>
-              <Text style={[styles.successSubtitle, { color: theme.textMuted }]}>
-                Thank you for helping road users know what lies ahead. Your report is now live for the community.
-              </Text>
-            </View>
-          ) : (
-            <>
-              <ScrollView
-                contentContainerStyle={styles.formContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                {/* Server Error Banner */}
-                {serverError ? (
-                  <View style={[styles.errorBox, { backgroundColor: isDark ? '#3D1B1B' : '#FDF0F0' }]}>
-                    <AlertCircle size={15} color="#F87171" />
-                    <Text style={styles.errorText}>{serverError}</Text>
-                  </View>
-                ) : null}
-
-                {/* 1. Category Selection */}
-                <View style={styles.section}>
-                  <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
-                    Hazard category <Text style={{ color: '#D64545' }}>*</Text>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoider}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                maxHeight: modalMaxHeight,
+              },
+            ]}
+          >
+            {/* Pinned Sticky Header */}
+            <View style={[styles.headerRow, { borderBottomColor: theme.borderSubtle, backgroundColor: theme.surface }]}>
+              <View style={styles.headerLeft}>
+                <RouteXLogoMark size={30} />
+                <View style={styles.headerMeta}>
+                  <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+                    Report a Road Hazard
                   </Text>
-                  <View style={styles.categoryGrid}>
-                    {HAZARD_CATEGORIES.map((cat) => {
-                      const isSelected = category === cat.id;
-                      return (
-                        <TouchableOpacity
-                          key={cat.id}
-                          onPress={() => setCategory(cat.id)}
-                          style={[
-                            styles.catCard,
-                            {
-                              backgroundColor: isSelected
-                                ? (isDark ? '#0F2E35' : '#E6F4F6')
-                                : theme.surfaceSubtle,
-                              borderColor: isSelected ? theme.teal : theme.border,
-                            },
-                          ]}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.catCardTop}>
-                            {renderCategoryIcon(cat.id, isSelected)}
-                            <Text
-                              style={[
-                                styles.catLabel,
-                                {
-                                  color: isSelected ? theme.teal : theme.textPrimary,
-                                  fontWeight: isSelected ? '800' : '600',
-                                },
-                              ]}
-                            >
-                              {cat.label}
-                            </Text>
-                          </View>
-                          <Text
-                            style={[styles.catDesc, { color: theme.textMuted }]}
-                            numberOfLines={2}
-                          >
-                            {cat.description}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                  <Text style={[styles.modalSubtitle, { color: theme.textMuted }]}>
+                    Share timely road conditions to help fellow road users.
+                  </Text>
                 </View>
+              </View>
+              <TouchableOpacity
+                onPress={handleClose}
+                style={styles.closeBtn}
+                accessibilityLabel="Close dialog"
+                activeOpacity={0.7}
+              >
+                <X size={20} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
 
-                {/* 2. Location on Map & Corridor Presets */}
-                <View style={styles.section}>
-                  <View style={styles.labelRow}>
+            {/* Form Content / Success Screen / Auth Required Screen */}
+            {isSuccess ? (
+              <View style={styles.successContainer}>
+                <View style={[styles.successIconBox, { backgroundColor: isDark ? '#143826' : '#DCFCE7' }]}>
+                  <CheckCircle2 size={42} color="#16A34A" />
+                </View>
+                <Text style={[styles.successTitle, { color: theme.textPrimary }]}>Report Submitted</Text>
+                <Text style={[styles.successSubtitle, { color: theme.textMuted }]}>
+                  Thank you for helping road users know what lies ahead. Your report is now live for the community.
+                </Text>
+              </View>
+            ) : !isAuthenticated ? (
+              <View style={styles.authPromptContainer}>
+                <View style={[styles.authIconBox, { backgroundColor: isDark ? '#113540' : '#E0F2FE' }]}>
+                  <ShieldCheck size={42} color={theme.teal} />
+                </View>
+                <Text style={[styles.authPromptTitle, { color: theme.textPrimary }]}>
+                  Sign in to report a road hazard
+                </Text>
+                <Text style={[styles.authPromptSubtitle, { color: theme.textMuted }]}>
+                  RouteX requires an account to submit hazard reports to maintain community trust, prevent abuse, and allow updates to be tracked transparently.
+                </Text>
+                <View style={styles.authBtnRow}>
+                  <TouchableOpacity
+                    style={[styles.authPrimaryBtn, { backgroundColor: theme.teal }]}
+                    onPress={() => {
+                      handleClose();
+                      if (onOpenAuth) onOpenAuth('login');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.authPrimaryBtnText}>Sign In</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.authSecondaryBtn,
+                      { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
+                    ]}
+                    onPress={() => {
+                      handleClose();
+                      if (onOpenAuth) onOpenAuth('register');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.authSecondaryBtnText, { color: theme.textPrimary }]}>
+                      Create an account
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <>
+                <ScrollView
+                  contentContainerStyle={styles.formContent}
+                  keyboardShouldPersistTaps="handled"
+                  automaticallyAdjustKeyboardInsets={true}
+                  keyboardDismissMode="interactive"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* Server Error Banner */}
+                  {serverError ? (
+                    <View style={[styles.errorBox, { backgroundColor: isDark ? '#3D1B1B' : '#FDF0F0' }]}>
+                      <AlertCircle size={15} color="#F87171" />
+                      <Text style={styles.errorText}>{serverError}</Text>
+                    </View>
+                  ) : null}
+
+                  {/* 1. Category Selection */}
+                  <View style={styles.section}>
+                    <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
+                      Hazard category <Text style={{ color: '#D64545' }}>*</Text>
+                    </Text>
+                    <View style={styles.categoryGrid}>
+                      {HAZARD_CATEGORIES.map((cat) => {
+                        const isSelected = category === cat.id;
+                        return (
+                          <TouchableOpacity
+                            key={cat.id}
+                            style={[
+                              styles.categoryCard,
+                              {
+                                backgroundColor: isSelected
+                                  ? theme.teal + '18'
+                                  : theme.surfaceSubtle,
+                                borderColor: isSelected ? theme.teal : theme.border,
+                              },
+                            ]}
+                            onPress={() => setCategory(cat.id)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.catHeader}>
+                              {renderCategoryIcon(cat.id, isSelected)}
+                              <Text
+                                style={[
+                                  styles.catLabel,
+                                  { color: isSelected ? theme.teal : theme.textPrimary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {cat.label}
+                              </Text>
+                            </View>
+                            <Text style={[styles.catDesc, { color: theme.textMuted }]} numberOfLines={1}>
+                              {cat.description}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* 2. Interactive Map Location Picker & GPS Current Location */}
+                  <View style={styles.section}>
                     <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
                       Location on map <Text style={{ color: '#D64545' }}>*</Text>
                     </Text>
-                    <View style={styles.gpsCoordBadge}>
-                      <MapPin size={11} color={theme.teal} />
-                      <Text style={[styles.gpsCoordText, { color: theme.teal }]}>
-                        {latitude.toFixed(4)}, {longitude.toFixed(4)}
-                      </Text>
-                    </View>
-                  </View>
 
-                  {/* Preset Corridors Horizontal Slider */}
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.corridorsScroll}
-                  >
-                    {PRESET_CORRIDORS.map((c) => {
-                      const isMatch = activeCorridor === c.name;
-                      return (
-                        <TouchableOpacity
-                          key={c.name}
-                          style={[
-                            styles.corridorChip,
-                            {
-                              backgroundColor: isMatch ? theme.teal : theme.surfaceSubtle,
-                              borderColor: isMatch ? theme.teal : theme.border,
-                            },
-                          ]}
-                          onPress={() => handleSelectCorridor(c)}
-                          activeOpacity={0.7}
-                        >
-                          <Navigation size={11} color={isMatch ? '#FFFFFF' : theme.textMuted} />
-                          <Text
-                            style={[
-                              styles.corridorChipText,
-                              { color: isMatch ? '#FFFFFF' : theme.textPrimary },
-                            ]}
-                          >
-                            {c.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
+                    {/* Interactive Leaflet Map Preview */}
+                    <LocationPickerMapNative
+                      latitude={latitude}
+                      longitude={longitude}
+                      onLocationChange={handleLocationChange}
+                      height={185}
+                    />
 
-                  {/* Map Pin Target Box */}
-                  <View
-                    style={[
-                      styles.mapTargetBox,
-                      { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
-                    ]}
-                  >
-                    <View style={[styles.mapTargetPin, { backgroundColor: theme.teal }]}>
-                      <MapPin size={18} color="#FFFFFF" />
-                    </View>
-                    <View style={styles.mapTargetInfo}>
-                      <Text style={[styles.mapTargetTitle, { color: theme.textPrimary }]}>
-                        GPS Anchor: Lagos Metropolitan
-                      </Text>
-                      <Text style={[styles.mapTargetSub, { color: theme.textMuted }]}>
-                        {activeCorridor ? `Corridor: ${activeCorridor}` : 'Tap above to lock to a corridor'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* 3. Landmark / Street Name */}
-                <View style={styles.section}>
-                  <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
-                    Street name or landmark{' '}
-                    <Text style={{ fontWeight: '400', color: theme.textMuted }}>(optional)</Text>
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      {
-                        backgroundColor: theme.surfaceSubtle,
-                        borderColor: theme.border,
-                        color: theme.textPrimary,
-                      },
-                    ]}
-                    placeholder="e.g. Lekki-Epe Expressway by Jakande Roundabout"
-                    placeholderTextColor={theme.textMuted}
-                    maxLength={150}
-                    value={locationName}
-                    onChangeText={setLocationName}
-                  />
-                </View>
-
-                {/* 4. Description with Character Counter */}
-                <View style={styles.section}>
-                  <View style={styles.labelRow}>
-                    <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
-                      Description <Text style={{ color: '#D64545' }}>*</Text>
-                    </Text>
-                    <Text style={[styles.charCounter, { color: theme.textMuted }]}>
-                      {description.length}/1000
-                    </Text>
-                  </View>
-                  <TextInput
-                    style={[
-                      styles.textArea,
-                      {
-                        backgroundColor: theme.surfaceSubtle,
-                        borderColor: theme.border,
-                        color: theme.textPrimary,
-                      },
-                    ]}
-                    placeholder="Describe what you see: depth of water, which lanes are affected, or dangerous road edges."
-                    placeholderTextColor={theme.textMuted}
-                    multiline
-                    numberOfLines={3}
-                    maxLength={1000}
-                    value={description}
-                    onChangeText={setDescription}
-                  />
-                </View>
-
-                {/* 5. Optional Photo Evidence */}
-                <View style={styles.section}>
-                  <View style={styles.labelRow}>
-                    <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
-                      Optional photo evidence{' '}
-                      <Text style={{ fontWeight: '400', color: theme.textMuted }}>
-                        (auto-converted to WebP)
-                      </Text>
-                    </Text>
-                    {photoUri && (
-                      <View style={styles.webpBadge}>
-                        <Sparkles size={11} color="#16A34A" />
-                        <Text style={styles.webpBadgeText}>WebP Optimized</Text>
+                    {/* Coordinates Readout & Manual Coordinates Input Toggle */}
+                    <View style={styles.coordBar}>
+                      <View style={styles.gpsCoordBadge}>
+                        <MapPin size={11} color={theme.teal} />
+                        <Text style={[styles.gpsCoordText, { color: theme.teal }]}>
+                          GPS: {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                        </Text>
                       </View>
-                    )}
-                  </View>
 
-                  {photoUri ? (
-                    <View
-                      style={[
-                        styles.photoPreviewCard,
-                        { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
-                      ]}
-                    >
-                      <Image source={{ uri: photoUri }} style={styles.photoThumbnail} />
-                      <View style={styles.photoMeta}>
-                        <View style={styles.photoNameRow}>
-                          <Text
-                            style={[styles.photoName, { color: theme.textPrimary }]}
-                            numberOfLines={1}
-                          >
-                            {photoName || 'hazard_evidence.webp'}
-                          </Text>
-                          <View style={[styles.webpChip, { backgroundColor: theme.teal + '22' }]}>
-                            <Text style={[styles.webpChipText, { color: theme.teal }]}>WEBP</Text>
-                          </View>
-                        </View>
-                        <TouchableOpacity onPress={handlePickPhoto} activeOpacity={0.7}>
-                          <Text style={[styles.changePhotoText, { color: theme.teal }]}>
-                            Change photo
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
                       <TouchableOpacity
-                        onPress={handleRemovePhoto}
-                        style={styles.photoRemoveBtn}
+                        style={styles.toggleCoordBtn}
+                        onPress={() => setShowCoordinateInputs((prev) => !prev)}
                         activeOpacity={0.7}
                       >
-                        <X size={16} color="#FFFFFF" />
+                        <Sliders size={12} color={theme.teal} />
+                        <Text style={[styles.toggleCoordText, { color: theme.teal }]}>
+                          {showCoordinateInputs ? 'Hide Input' : 'Input Position'}
+                        </Text>
                       </TouchableOpacity>
                     </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={[
-                        styles.photoUploadBtn,
-                        { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
-                      ]}
-                      onPress={handlePickPhoto}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.photoUploadIcons}>
-                        <Camera size={20} color={theme.textMuted} />
-                        <ImageIcon size={20} color={theme.textMuted} />
+
+                    {/* Option to Input Position Manually */}
+                    {showCoordinateInputs && (
+                      <View style={[styles.coordInputsBox, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
+                        <Text style={[styles.coordInputsTitle, { color: theme.textPrimary }]}>
+                          Direct Coordinates Entry (Latitude & Longitude)
+                        </Text>
+                        <View style={styles.coordInputsRow}>
+                          <View style={styles.coordCol}>
+                            <Text style={[styles.coordSubLabel, { color: theme.textMuted }]}>Latitude</Text>
+                            <TextInput
+                              style={[
+                                styles.coordInput,
+                                {
+                                  backgroundColor: theme.surface,
+                                  borderColor: theme.border,
+                                  color: theme.textPrimary,
+                                },
+                              ]}
+                              value={latInput}
+                              onChangeText={setLatInput}
+                              keyboardType="numeric"
+                              placeholder="e.g. 6.4531"
+                              placeholderTextColor={theme.textMuted}
+                            />
+                          </View>
+
+                          <View style={styles.coordCol}>
+                            <Text style={[styles.coordSubLabel, { color: theme.textMuted }]}>Longitude</Text>
+                            <TextInput
+                              style={[
+                                styles.coordInput,
+                                {
+                                  backgroundColor: theme.surface,
+                                  borderColor: theme.border,
+                                  color: theme.textPrimary,
+                                },
+                              ]}
+                              value={lngInput}
+                              onChangeText={setLngInput}
+                              keyboardType="numeric"
+                              placeholder="e.g. 3.3958"
+                              placeholderTextColor={theme.textMuted}
+                            />
+                          </View>
+
+                          <TouchableOpacity
+                            style={[styles.applyCoordBtn, { backgroundColor: theme.teal }]}
+                            onPress={handleManualCoordApply}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.applyCoordText}>Apply</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                      <Text style={[styles.photoUploadTitle, { color: theme.teal }]}>
-                        Select or capture a photo
-                      </Text>
-                      <Text style={[styles.photoUploadSub, { color: theme.textMuted }]}>
-                        Automatically compressed to WebP &bull; High resolution, low data
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </ScrollView>
+                    )}
 
-              {/* Pinned Sticky Footer */}
-              <View
-                style={[
-                  styles.footerRow,
-                  { borderTopColor: theme.borderSubtle, backgroundColor: theme.surface },
-                ]}
-              >
-                <TouchableOpacity
-                  style={[
-                    styles.cancelBtn,
-                    { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
-                  ]}
-                  onPress={handleClose}
-                  disabled={submitting}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.cancelBtnText, { color: theme.textPrimary }]}>Cancel</Text>
-                </TouchableOpacity>
+                    {/* Preset Corridors Horizontal Slider */}
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.corridorsScroll}
+                    >
+                      {PRESET_CORRIDORS.map((c) => {
+                        const isMatch = activeCorridor === c.name;
+                        return (
+                          <TouchableOpacity
+                            key={c.name}
+                            style={[
+                              styles.corridorChip,
+                              {
+                                backgroundColor: isMatch ? theme.teal : theme.surfaceSubtle,
+                                borderColor: isMatch ? theme.teal : theme.border,
+                              },
+                            ]}
+                            onPress={() => handleSelectCorridor(c)}
+                            activeOpacity={0.7}
+                          >
+                            <Navigation size={11} color={isMatch ? '#FFFFFF' : theme.textMuted} />
+                            <Text
+                              style={[
+                                styles.corridorChipText,
+                                { color: isMatch ? '#FFFFFF' : theme.textPrimary },
+                              ]}
+                            >
+                              {c.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
 
-                <TouchableOpacity
-                  style={[
-                    styles.submitButton,
-                    { backgroundColor: theme.teal, opacity: submitting ? 0.7 : 1 },
-                  ]}
-                  onPress={handleSubmit}
-                  disabled={submitting}
-                  activeOpacity={0.8}
-                >
-                  {submitting ? (
-                    <View style={styles.submittingRow}>
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                      <Text style={styles.submitBtnText}>Submitting report...</Text>
+                  {/* 3. Landmark / Street Name */}
+                  <View style={styles.section}>
+                    <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
+                      Street name or landmark{' '}
+                      <Text style={{ fontWeight: '400', color: theme.textMuted }}>(optional)</Text>
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        {
+                          backgroundColor: theme.surfaceSubtle,
+                          borderColor: theme.border,
+                          color: theme.textPrimary,
+                        },
+                      ]}
+                      placeholder="e.g. Lekki-Epe Expressway by Jakande Roundabout"
+                      placeholderTextColor={theme.textMuted}
+                      maxLength={150}
+                      value={locationName}
+                      onChangeText={setLocationName}
+                    />
+                  </View>
+
+                  {/* 4. Description with Character Counter */}
+                  <View style={styles.section}>
+                    <View style={styles.labelRow}>
+                      <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
+                        Description <Text style={{ color: '#D64545' }}>*</Text>
+                      </Text>
+                      <Text style={[styles.charCounter, { color: theme.textMuted }]}>
+                        {description.length}/1000
+                      </Text>
                     </View>
-                  ) : (
-                    <Text style={styles.submitBtnText}>Submit report</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-        </View>
+                    <TextInput
+                      style={[
+                        styles.textArea,
+                        {
+                          backgroundColor: theme.surfaceSubtle,
+                          borderColor: theme.border,
+                          color: theme.textPrimary,
+                        },
+                      ]}
+                      placeholder="Describe what you see: depth of water, which lanes are affected, or dangerous road edges."
+                      placeholderTextColor={theme.textMuted}
+                      multiline
+                      numberOfLines={3}
+                      maxLength={1000}
+                      value={description}
+                      onChangeText={setDescription}
+                    />
+                  </View>
+
+                  {/* 5. Optional Photo Evidence */}
+                  <View style={styles.section}>
+                    <View style={styles.labelRow}>
+                      <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
+                        Optional photo evidence{' '}
+                        <Text style={{ fontWeight: '400', color: theme.textMuted }}>
+                          (auto-converted to WebP)
+                        </Text>
+                      </Text>
+                      {photoUri && (
+                        <View style={styles.webpBadge}>
+                          <Sparkles size={11} color="#16A34A" />
+                          <Text style={styles.webpBadgeText}>WebP Optimized</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {photoUri ? (
+                      <View
+                        style={[
+                          styles.photoPreviewCard,
+                          { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
+                        ]}
+                      >
+                        <Image source={{ uri: photoUri }} style={styles.photoThumbnail} />
+                        <View style={styles.photoMeta}>
+                          <View style={styles.photoNameRow}>
+                            <Text
+                              style={[styles.photoName, { color: theme.textPrimary }]}
+                              numberOfLines={1}
+                            >
+                              {photoName || 'hazard_evidence.webp'}
+                            </Text>
+                            <View style={[styles.webpChip, { backgroundColor: theme.teal + '22' }]}>
+                              <Text style={[styles.webpChipText, { color: theme.teal }]}>WEBP</Text>
+                            </View>
+                          </View>
+                          <TouchableOpacity onPress={handlePickPhoto} activeOpacity={0.7}>
+                            <Text style={[styles.changePhotoText, { color: theme.teal }]}>
+                              Change photo
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                          onPress={handleRemovePhoto}
+                          style={styles.photoRemoveBtn}
+                          activeOpacity={0.7}
+                        >
+                          <X size={16} color="#FFFFFF" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[
+                          styles.photoUploadBtn,
+                          { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
+                        ]}
+                        onPress={handlePickPhoto}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.photoUploadIcons}>
+                          <Camera size={20} color={theme.textMuted} />
+                          <ImageIcon size={20} color={theme.textMuted} />
+                        </View>
+                        <Text style={[styles.photoUploadTitle, { color: theme.teal }]}>
+                          Select or capture a photo
+                        </Text>
+                        <Text style={[styles.photoUploadSub, { color: theme.textMuted }]}>
+                          Automatically compressed to WebP &bull; High resolution, low data
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </ScrollView>
+
+                {/* Pinned Sticky Footer */}
+                <View
+                  style={[
+                    styles.footerRow,
+                    { borderTopColor: theme.borderSubtle, backgroundColor: theme.surface },
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.cancelBtn,
+                      { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
+                    ]}
+                    onPress={handleClose}
+                    disabled={submitting}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.cancelBtnText, { color: theme.textPrimary }]}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.submitButton,
+                      { backgroundColor: theme.teal, opacity: submitting ? 0.7 : 1 },
+                    ]}
+                    onPress={handleSubmit}
+                    disabled={submitting}
+                    activeOpacity={0.8}
+                  >
+                    {submitting ? (
+                      <View style={styles.submittingRow}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <Text style={styles.submitBtnText}>Submitting report...</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.submitBtnText}>Submit report</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -542,11 +733,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
+  keyboardAvoider: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    width: '100%',
+  },
   modalCard: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,
-    maxHeight: '92%',
+    flexShrink: 1,
     elevation: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
@@ -583,35 +779,10 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   formContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     gap: 14,
-    paddingBottom: 24,
-  },
-  section: {
-    gap: 6,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  charCounter: {
-    fontSize: 10,
-    fontFamily: 'monospace',
-  },
-  gpsCoordBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  gpsCoordText: {
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: 'monospace',
+    paddingBottom: 20,
   },
   errorBox: {
     flexDirection: 'row',
@@ -626,85 +797,145 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
+  section: {
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  charCounter: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  catCard: {
+  categoryCard: {
     width: '48.5%',
     padding: 10,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    gap: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 2,
   },
-  catCardTop: {
+  catHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   catLabel: {
     fontSize: 12,
+    fontWeight: '700',
     flex: 1,
   },
   catDesc: {
+    fontSize: 9,
+    marginTop: 2,
+  },
+  coordBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  gpsCoordBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  gpsCoordText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  toggleCoordBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  toggleCoordText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  coordInputsBox: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+    gap: 8,
+    marginTop: 4,
+  },
+  coordInputsTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  coordInputsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  coordCol: {
+    flex: 1,
+    gap: 3,
+  },
+  coordSubLabel: {
     fontSize: 10,
-    lineHeight: 14,
+    fontWeight: '600',
+  },
+  coordInput: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    fontSize: 11,
+  },
+  applyCoordBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyCoordText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   corridorsScroll: {
     gap: 6,
-    paddingVertical: 2,
+    paddingTop: 4,
   },
   corridorChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
   },
   corridorChipText: {
     fontSize: 11,
-    fontWeight: '700',
-  },
-  mapTargetBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 12,
-    marginTop: 4,
-  },
-  mapTargetPin: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapTargetInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  mapTargetTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  mapTargetSub: {
-    fontSize: 11,
+    fontWeight: '600',
   },
   textInput: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 12,
   },
   textArea: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 12,
@@ -715,26 +946,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: 'rgba(22, 163, 74, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   webpBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
     color: '#16A34A',
+    fontSize: 9,
+    fontWeight: '700',
   },
   photoUploadBtn: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 18,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
     gap: 4,
   },
   photoUploadIcons: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
-    marginBottom: 2,
   },
   photoUploadTitle: {
     fontSize: 12,
@@ -742,20 +975,19 @@ const styles = StyleSheet.create({
   },
   photoUploadSub: {
     fontSize: 10,
-    textAlign: 'center',
   },
   photoPreviewCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
+    padding: 8,
     gap: 10,
   },
   photoThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
+    width: 52,
+    height: 52,
+    borderRadius: 6,
   },
   photoMeta: {
     flex: 1,
@@ -767,35 +999,33 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   photoName: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
     flex: 1,
   },
   webpChip: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
     borderRadius: 4,
   },
   webpChipText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '800',
   },
   changePhotoText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   photoRemoveBtn: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
     width: 26,
     height: 26,
     borderRadius: 13,
+    backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
   },
   footerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -803,41 +1033,43 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 11,
+    borderRadius: 8,
     borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelBtnText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   submitButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submittingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   submitBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   successContainer: {
-    padding: 36,
+    padding: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 10,
   },
   successIconBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
@@ -850,6 +1082,60 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
-    maxWidth: 260,
+  },
+  authPromptContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  authIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  authPromptTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  authPromptSubtitle: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 320,
+  },
+  authBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginTop: 8,
+  },
+  authPrimaryBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  authPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  authSecondaryBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  authSecondaryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

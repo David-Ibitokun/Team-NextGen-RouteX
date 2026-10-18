@@ -97,9 +97,6 @@ export function AppHeader({ onReportClick }) {
                 RouteX
               </span>
             </div>
-            <p className="text-[10px] text-slate-300 dark:text-slate-400 hidden sm:block leading-none">
-              Know the Road Ahead.
-            </p>
           </div>
         </Link>
 
@@ -108,88 +105,42 @@ export function AppHeader({ onReportClick }) {
           aria-label="Main Navigation"
           className="hidden md:flex items-center gap-5 text-xs font-medium text-slate-300"
         >
-          {/* Conditional Role Dashboard Navigation */}
-          {user && (
-            <Link
-              to="/dashboard"
-              className={`transition-colors flex items-center gap-1.5 py-1 px-2 rounded-md ${
-                isDashboardRoute
-                  ? "text-teal-400 font-semibold bg-slate-800/60"
-                  : "hover:text-white hover:bg-slate-800/40"
-              }`}
-            >
-              <LayoutDashboard className="w-3.5 h-3.5 text-teal-400" />
-              <span>Citizen Dashboard</span>
-            </Link>
-          )}
-
-          {isModerator && (
-            <Link
-              to="/moderator"
-              className={`transition-colors flex items-center gap-1.5 py-1 px-2 rounded-md ${
-                isModeratorRoute
-                  ? "text-amber-400 font-semibold bg-slate-800/60"
-                  : "text-amber-300/90 hover:text-amber-200 hover:bg-slate-800/40"
-              }`}
-            >
-              <Shield className="w-3.5 h-3.5 text-amber-400" />
-              <span>Moderator Queue</span>
-            </Link>
-          )}
-
-          {isAdmin && (
-            <Link
-              to="/admin-dashboard"
-              className={`transition-colors flex items-center gap-1.5 py-1 px-2 rounded-md ${
-                isAdminRoute
-                  ? "text-indigo-400 font-semibold bg-slate-800/60"
-                  : "text-indigo-300/90 hover:text-indigo-200 hover:bg-slate-800/40"
-              }`}
-            >
-              <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Admin Portal</span>
-            </Link>
-          )}
-
-          {!user && (
-            <>
-              <a
-                href="/#how-it-works"
-                className="hover:text-white transition-colors py-1 px-2 rounded-md hover:bg-slate-800/40"
-              >
-                How it works
-              </a>
-              <a
-                href="/#features"
-                className="hover:text-white transition-colors py-1 px-2 rounded-md hover:bg-slate-800/40"
-              >
-                Features
-              </a>
-              <a
-                href="/#safety-and-trust"
-                className="hover:text-white transition-colors py-1 px-2 rounded-md hover:bg-slate-800/40"
-              >
-                Safety & Trust
-              </a>
-            </>
-          )}
-          
-          <Link
-            to="/map"
-            className={`transition-colors flex items-center gap-1.5 py-1 px-2 rounded-md ${
-              isMapRoute
-                ? "text-teal-400 font-semibold bg-slate-800/60"
-                : "hover:text-white hover:bg-slate-800/40"
-            }`}
-          >
-            <MapPin className="w-3.5 h-3.5 text-teal-400" />
-            <span>Explore Map</span>
-          </Link>
-
         </nav>
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden lg:flex items-center gap-1 text-xs font-medium text-slate-300">
+            <a
+              href="/#how-it-works"
+              className="hover:text-white transition-colors py-1.5 px-2 rounded-md hover:bg-slate-800/40"
+            >
+              How it works
+            </a>
+            <a
+              href="/#features"
+              className="hover:text-white transition-colors py-1.5 px-2 rounded-md hover:bg-slate-800/40"
+            >
+              Features
+            </a>
+            <a
+              href="/#safety-and-trust"
+              className="hover:text-white transition-colors py-1.5 px-2 rounded-md hover:bg-slate-800/40"
+            >
+              Safety & Trust
+            </a>
+            <Link
+              to="/map"
+              className={`flex items-center gap-1.5 transition-colors py-1.5 px-2 rounded-md ${
+                isMapRoute
+                  ? "text-teal-400 font-semibold bg-slate-800/60"
+                  : "hover:text-white hover:bg-slate-800/40"
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5 text-teal-400" />
+              <span>Explore Map</span>
+            </Link>
+          </div>
+
           {/* PWA Install Button (desktop & mobile supported) */}
           {installPrompt && (
             <button
@@ -205,14 +156,14 @@ export function AppHeader({ onReportClick }) {
 
           {/* Swagger API Docs */}
           <a
-            href="http://127.0.0.1:8000/api/docs/"
+            href="/api/docs/"
             target="_blank"
             rel="noopener noreferrer"
             className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/70 hover:bg-slate-800 rounded-md border border-slate-700 transition-colors"
             title="Open interactive Swagger UI API documentation"
           >
             <FileCode className="w-3.5 h-3.5 text-teal-400" />
-            <span>API Docs</span>
+            {/* <span>API Docs</span> */}
           </a>
 
           {/* Theme Toggle Button */}
@@ -278,7 +229,12 @@ export function AppHeader({ onReportClick }) {
                   <Link
                     to="/dashboard"
                     onClick={() => setUserDropdownOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
+                    className={`flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                      isDashboardRoute
+                        ? "text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                    }`}
+                    role="menuitem"
                   >
                     <LayoutDashboard className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                     <span>Citizen Dashboard</span>
@@ -288,10 +244,15 @@ export function AppHeader({ onReportClick }) {
                     <Link
                       to="/moderator"
                       onClick={() => setUserDropdownOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
+                      className={`flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                        isModeratorRoute
+                          ? "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40"
+                          : "text-amber-700 dark:text-amber-400 hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                      }`}
+                      role="menuitem"
                     >
                       <Shield className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Moderation Queue</span>
+                      <span>Moderator Queue</span>
                     </Link>
                   )}
 
@@ -299,12 +260,18 @@ export function AppHeader({ onReportClick }) {
                     <Link
                       to="/admin-dashboard"
                       onClick={() => setUserDropdownOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 text-xs text-indigo-700 dark:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
+                      className={`flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                        isAdminRoute
+                          ? "text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40"
+                          : "text-indigo-700 dark:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                      }`}
+                      role="menuitem"
                     >
                       <Sliders className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Admin Operations</span>
+                      <span>Admin Portal</span>
                     </Link>
                   )}
+
 
                   <button
                     type="button"
@@ -407,22 +374,25 @@ export function AppHeader({ onReportClick }) {
             <a
               href="/#how-it-works"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
             >
+              <FolderKanban className="w-4 h-4 text-slate-400" />
               How it works
             </a>
             <a
               href="/#features"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
             >
+              <CheckCircle2 className="w-4 h-4 text-slate-400" />
               Features
             </a>
             <a
               href="/#safety-and-trust"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
             >
+              <ShieldAlert className="w-4 h-4 text-slate-400" />
               Safety & Trust
             </a>
             
@@ -436,7 +406,7 @@ export function AppHeader({ onReportClick }) {
             </Link>
 
             <a
-              href="http://127.0.0.1:8000/api/docs/"
+              href="/api/docs/"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-300"

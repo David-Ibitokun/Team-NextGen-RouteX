@@ -70,6 +70,7 @@ export interface HazardItem {
   category: 'flooding' | 'pothole' | 'blocked_road' | 'fallen_tree' | 'other';
   status: 'reported' | 'under_review' | 'community_confirmed' | 'resolved' | 'rejected';
   location_name?: string;
+  location_label?: string;
   description: string;
   latitude: number;
   longitude: number;

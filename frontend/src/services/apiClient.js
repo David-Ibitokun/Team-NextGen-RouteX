@@ -165,8 +165,9 @@ export const hazardService = {
   async createHazard(payload) {
     await authService.getCsrfToken();
     const isFormData = payload instanceof FormData;
+    // When sending FormData, let the browser / Axios automatically set multipart/form-data with boundary
     const config = isFormData
-      ? { headers: { "Content-Type": "multipart/form-data" } }
+      ? {}
       : { headers: { "Content-Type": "application/json" } };
     const response = await apiClient.post("/hazards/", payload, config);
     return response.data;

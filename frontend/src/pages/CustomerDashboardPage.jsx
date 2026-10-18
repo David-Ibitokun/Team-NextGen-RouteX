@@ -132,10 +132,7 @@ export function CustomerDashboardPage() {
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* User Welcome Banner */}
         <div className="bg-white dark:bg-[#142533] rounded-2xl border border-[#DCE4E8] dark:border-slate-800 p-6 md:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-[#087F8C] dark:text-teal-400 flex items-center justify-center shrink-0 border border-teal-100 dark:border-teal-900/50">
-              <User className="w-8 h-8" />
-            </div>
+          <div className="flex items-start">
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#142B3B] dark:text-white">
@@ -224,7 +221,8 @@ export function CustomerDashboardPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center border-b border-[#DCE4E8] dark:border-slate-800 space-x-6 text-sm font-semibold">
+        <div className="overflow-x-auto border-b border-[#DCE4E8] dark:border-slate-800">
+          <div className="flex w-max min-w-full items-center space-x-6 text-sm font-semibold">
           <button
             onClick={() => setActiveTab("reports")}
             className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${
@@ -233,7 +231,7 @@ export function CustomerDashboardPage() {
                 : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
             }`}
           >
-            <AlertTriangle className="w-4 h-4" />
+            {/* <AlertTriangle className="w-4 h-4" /> */}
             My Road Reports ({reports.length})
           </button>
 
@@ -245,7 +243,7 @@ export function CustomerDashboardPage() {
                 : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
             }`}
           >
-            <TrendingUp className="w-4 h-4" />
+            {/* <TrendingUp className="w-4 h-4" /> */}
             Community Impact & Badges
           </button>
 
@@ -257,9 +255,10 @@ export function CustomerDashboardPage() {
                 : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
             }`}
           >
-            <Settings className="w-4 h-4" />
+            {/* <Settings className="w-4 h-4" /> */}
             Account & Profile
           </button>
+          </div>
         </div>
 
         {/* Tab 1: My Reports List */}

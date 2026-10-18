@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Map, List, Plus } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -12,9 +13,20 @@ interface MobileBottomNavNativeProps {
 
 export const MobileBottomNavNative: React.FC<MobileBottomNavNativeProps> = ({ activeTab, onTabChange }) => {
   const { isDark, theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.tabBarBg, borderTopColor: theme.tabBarBorder }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.tabBarBg,
+          borderTopColor: theme.tabBarBorder,
+          height: 64 + insets.bottom,
+          paddingBottom: 4 + insets.bottom,
+        },
+      ]}
+    >
       {/* Map Tab */}
       <TouchableOpacity
         style={styles.tabItem}

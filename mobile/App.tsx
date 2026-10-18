@@ -9,30 +9,62 @@ import {
   BackHandler,
   Alert,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { AppHeaderNative } from './src/components/AppHeaderNative';
 import { MobileBottomNavNative, ActiveTab } from './src/components/MobileBottomNavNative';
 import { HazardFiltersNative } from './src/components/HazardFiltersNative';
 import { HazardCardNative } from './src/components/HazardCardNative';
 import { NativeMapScreen } from './src/components/NativeMapScreen';
-import { DashboardScreenNative } from './src/components/DashboardScreenNative';
+import { CitizenDashboardNative } from './src/components/CitizenDashboardNative';
+import { ModeratorDashboardNative } from './src/components/ModeratorDashboardNative';
+import { AdminDashboardNative } from './src/components/AdminDashboardNative';
 import { ReportModalNative } from './src/components/ReportModalNative';
+import { AuthModalNative } from './src/components/AuthModalNative';
+import { NotificationsModalNative } from './src/components/NotificationsModalNative';
 import { HazardListSkeletonNative } from './src/components/HazardSkeletonNative';
-import { ShieldCheck } from 'lucide-react-native';
+import { ShieldCheck, LayoutDashboard, Shield, Sliders } from 'lucide-react-native';
+import { TouchableOpacity } from 'react-native';
 import { HazardItem } from './src/constants/hazardTypes';
-import { fetchHazards } from './src/services/hazardService';
+import { fetchHazards, confirmHazard } from './src/services/hazardService';
+import {
+  setupNotificationChannels,
+  getNotificationHistory,
+  notifyHazardConfirmed,
+} from './src/services/notificationService';
 
 function RouteXNativeMain() {
   const { isDark, theme } = useTheme();
+  const { isAuthenticated, isModerator, isAdmin } = useAuth();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('list');
+  const [activeDashboard, setActiveDashboard] = useState<'citizen' | 'moderator' | 'admin'>('citizen');
   const [hazards, setHazards] = useState<HazardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+
+  // Modals
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+  // Load unread notifications count
+  const refreshNotificationsCount = useCallback(async () => {
+    const list = await getNotificationHistory();
+    const unread = list.filter((n) => !n.read).length;
+    setUnreadNotificationsCount(unread);
+  }, []);
+
+  // Initialize notification channels & listeners
+  useEffect(() => {
+    setupNotificationChannels().catch(() => {});
+    refreshNotificationsCount();
+  }, [refreshNotificationsCount]);
 
   const loadData = useCallback(async () => {
     try {
@@ -54,16 +86,18 @@ function RouteXNativeMain() {
     fetchHazards({
       category: selectedCategory,
       status: selectedStatus,
-    }).then((items) => {
-      if (isMounted) {
-        setHazards(items);
-        setLoading(false);
-      }
-    }).catch(() => {
-      if (isMounted) {
-        setLoading(false);
-      }
-    });
+    })
+      .then((items) => {
+        if (isMounted) {
+          setHazards(items);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
 
     return () => {
       isMounted = false;
@@ -73,11 +107,20 @@ function RouteXNativeMain() {
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
+    refreshNotificationsCount();
   };
 
   // Hardware Back Button listener
   useEffect(() => {
     const onBackPress = () => {
+      if (showNotificationsModal) {
+        setShowNotificationsModal(false);
+        return true;
+      }
+      if (showAuthModal) {
+        setShowAuthModal(false);
+        return true;
+      }
       if (showReportModal) {
         setShowReportModal(false);
         return true;
@@ -95,7 +138,7 @@ function RouteXNativeMain() {
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [showReportModal, activeTab]);
+  }, [showReportModal, showAuthModal, showNotificationsModal, activeTab]);
 
   const handleTabChange = (tab: ActiveTab) => {
     if (tab === 'report') {
@@ -105,39 +148,153 @@ function RouteXNativeMain() {
     }
   };
 
-  const handleConfirm = (id: string | number) => {
+  const handleConfirm = async (id: string | number) => {
+    // Optimistic UI update
     setHazards((prev) =>
       prev.map((h) =>
         h.id === id ? { ...h, confirmations_count: (h.confirmations_count ?? 1) + 1 } : h
       )
     );
+
+    // Call API
+    await confirmHazard(id);
+
+    // Dispatch local notification alert
+    const targetHazard = hazards.find((h) => h.id === id);
+    if (targetHazard) {
+      await notifyHazardConfirmed(targetHazard.category, targetHazard.location_name);
+      refreshNotificationsCount();
+    }
   };
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      style={[styles.root, { backgroundColor: theme.headerBg }]}
+      edges={['top', 'left', 'right']}
+    >
       <StatusBar
-        barStyle={isDark ? 'light-content' : 'light-content'}
+        barStyle="light-content"
         backgroundColor={theme.headerBg}
+        hidden={false}
+        translucent={false}
       />
 
-      {/* App Header with Logo & Theme Switch */}
+      {/* App Header with Logo, Web-App Drawer, Notifications Bell, Report & Theme Switch */}
       <AppHeaderNative
         onRefresh={onRefresh}
         refreshing={refreshing}
-        onOpenDashboard={() => setActiveTab(activeTab === 'dashboard' ? 'list' : 'dashboard')}
+        onOpenDashboard={(type = 'citizen') => {
+          setActiveDashboard(type);
+          setActiveTab(activeTab === 'dashboard' && activeDashboard === type ? 'list' : 'dashboard');
+        }}
+        onOpenCitizenDashboard={() => {
+          setActiveDashboard('citizen');
+          setActiveTab('dashboard');
+        }}
+        onOpenModeratorDashboard={() => {
+          setActiveDashboard('moderator');
+          setActiveTab('dashboard');
+        }}
+        onOpenAdminDashboard={() => {
+          setActiveDashboard('admin');
+          setActiveTab('dashboard');
+        }}
+        activeDashboard={activeTab === 'dashboard' ? activeDashboard : null}
         isDashboardActive={activeTab === 'dashboard'}
+        onOpenAuth={(mode = 'login') => {
+          setAuthMode(mode);
+          setShowAuthModal(true);
+        }}
+        onOpenNotifications={() => setShowNotificationsModal(true)}
+        unreadNotificationsCount={unreadNotificationsCount}
+        onOpenReport={() => setShowReportModal(true)}
+        onOpenMap={() => setActiveTab('map')}
       />
 
       {/* Active Tab View */}
-      <View style={styles.content}>
+      <View style={[styles.content, { backgroundColor: theme.background }]}>
         {activeTab === 'map' ? (
           <NativeMapScreen hazards={hazards} />
         ) : activeTab === 'dashboard' ? (
-          <DashboardScreenNative
-            hazards={hazards}
-            onOpenReport={() => setShowReportModal(true)}
-            onOpenMap={() => setActiveTab('map')}
-          />
+          <View style={{ flex: 1 }}>
+            {/* Top Role Switcher if Moderator or Admin */}
+            {(isModerator || isAdmin) && (
+              <View style={[styles.dashboardSwitcher, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.switcherTab,
+                    activeDashboard === 'citizen' && [styles.switcherTabActive, { backgroundColor: theme.teal + '20', borderColor: theme.teal }],
+                  ]}
+                  onPress={() => setActiveDashboard('citizen')}
+                  activeOpacity={0.7}
+                >
+                  <LayoutDashboard size={13} color={activeDashboard === 'citizen' ? theme.teal : theme.textMuted} />
+                  <Text style={[styles.switcherText, { color: activeDashboard === 'citizen' ? theme.teal : theme.textMuted }]}>
+                    Citizen
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.switcherTab,
+                    activeDashboard === 'moderator' && [styles.switcherTabActive, { backgroundColor: 'rgba(251, 191, 36, 0.2)', borderColor: '#FBBF24' }],
+                  ]}
+                  onPress={() => setActiveDashboard('moderator')}
+                  activeOpacity={0.7}
+                >
+                  <Shield size={13} color={activeDashboard === 'moderator' ? '#FBBF24' : theme.textMuted} />
+                  <Text style={[styles.switcherText, { color: activeDashboard === 'moderator' ? '#FBBF24' : theme.textMuted }]}>
+                    Moderator
+                  </Text>
+                </TouchableOpacity>
+
+                {isAdmin && (
+                  <TouchableOpacity
+                    style={[
+                      styles.switcherTab,
+                      activeDashboard === 'admin' && [styles.switcherTabActive, { backgroundColor: 'rgba(129, 140, 248, 0.2)', borderColor: '#818CF8' }],
+                    ]}
+                    onPress={() => setActiveDashboard('admin')}
+                    activeOpacity={0.7}
+                  >
+                    <Sliders size={13} color={activeDashboard === 'admin' ? '#818CF8' : theme.textMuted} />
+                    <Text style={[styles.switcherText, { color: activeDashboard === 'admin' ? '#818CF8' : theme.textMuted }]}>
+                      Admin
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* Render Specific Dedicated Dashboard */}
+            {activeDashboard === 'moderator' ? (
+              <ModeratorDashboardNative
+                hazards={hazards}
+                onOpenReport={() => setShowReportModal(true)}
+                onOpenMap={() => setActiveTab('map')}
+                onOpenAuth={() => {
+                  setAuthMode('login');
+                  setShowAuthModal(true);
+                }}
+              />
+            ) : activeDashboard === 'admin' ? (
+              <AdminDashboardNative
+                hazards={hazards}
+                onOpenReport={() => setShowReportModal(true)}
+                onOpenMap={() => setActiveTab('map')}
+              />
+            ) : (
+              <CitizenDashboardNative
+                hazards={hazards}
+                onOpenReport={() => setShowReportModal(true)}
+                onOpenMap={() => setActiveTab('map')}
+                onOpenAuth={() => {
+                  setAuthMode('login');
+                  setShowAuthModal(true);
+                }}
+              />
+            )}
+          </View>
         ) : (
           <View style={styles.listContainer}>
             {/* Category and Status Filter bar */}
@@ -200,7 +357,26 @@ function RouteXNativeMain() {
         onSuccess={() => {
           setShowReportModal(false);
           loadData();
+          refreshNotificationsCount();
         }}
+        onOpenAuth={(mode = 'login') => {
+          setAuthMode(mode);
+          setShowAuthModal(true);
+        }}
+      />
+
+      {/* Authentication Modal */}
+      <AuthModalNative
+        visible={showAuthModal}
+        initialMode={authMode}
+        onClose={() => setShowAuthModal(false)}
+      />
+
+      {/* Notifications Modal */}
+      <NotificationsModalNative
+        visible={showNotificationsModal}
+        onClose={() => setShowNotificationsModal(false)}
+        onNotificationsChanged={refreshNotificationsCount}
       />
     </SafeAreaView>
   );
@@ -208,9 +384,11 @@ function RouteXNativeMain() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <ThemeProvider>
-        <RouteXNativeMain />
+        <AuthProvider>
+          <RouteXNativeMain />
+        </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );
@@ -251,5 +429,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  dashboardSwitcher: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    gap: 8,
+  },
+  switcherTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  switcherTabActive: {
+    borderWidth: 1,
+  },
+  switcherText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
