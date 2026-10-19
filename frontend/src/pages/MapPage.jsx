@@ -58,7 +58,49 @@ export function MapPage() {
       const items = response.results ? response.results : response;
       setHazards(items);
 
-      if (selectedHazard) {
+      const targetHazardId = searchParams.get("hazard_id") || searchParams.get("id");
+      const targetLat = searchParams.get("lat");
+      const targetLng = searchParams.get("lng");
+
+      if (targetHazardId) {
+        const found = items.find((h) => String(h.id) === String(targetHazardId));
+        if (found) {
+          setSelectedHazard(found);
+          setMobileTab("map");
+        } else if (targetLat && targetLng) {
+          // If filtered out or not in current page, attempt fetching single hazard or fallback
+          try {
+            const single = await hazardService.getHazard(targetHazardId);
+            if (single) {
+              setSelectedHazard(single);
+              setMobileTab("map");
+            }
+          } catch {
+            // Create temporary target pin
+            setSelectedHazard({
+              id: Number(targetHazardId),
+              latitude: Number(targetLat),
+              longitude: Number(targetLng),
+              location_label: "Reported Incident Location",
+              description: "Target incident selected from moderation dashboard",
+              category: "other",
+              status: "reported",
+            });
+            setMobileTab("map");
+          }
+        }
+      } else if (targetLat && targetLng) {
+        // Find nearest or match
+        const found = items.find(
+          (h) =>
+            Math.abs(Number(h.latitude) - Number(targetLat)) < 0.0005 &&
+            Math.abs(Number(h.longitude) - Number(targetLng)) < 0.0005
+        );
+        if (found) {
+          setSelectedHazard(found);
+          setMobileTab("map");
+        }
+      } else if (selectedHazard) {
         const found = items.find((h) => h.id === selectedHazard.id);
         if (found) setSelectedHazard(found);
       }
@@ -67,7 +109,7 @@ export function MapPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, selectedStatus]);
+  }, [selectedCategory, selectedStatus, searchParams]);
 
   useEffect(() => {
     fetchHazards();

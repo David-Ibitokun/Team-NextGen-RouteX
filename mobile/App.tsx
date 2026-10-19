@@ -48,6 +48,7 @@ function RouteXNativeMain() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedHazardToView, setSelectedHazardToView] = useState<HazardItem | any | null>(null);
 
   // Modals
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -255,7 +256,12 @@ function RouteXNativeMain() {
       {/* Active Tab View */}
       <View style={[styles.content, { backgroundColor: theme.background }]}>
         {activeTab === 'map' ? (
-          <NativeMapScreen hazards={hazards} />
+          <NativeMapScreen
+            hazards={hazards}
+            selectedHazard={selectedHazardToView}
+            onSelectHazard={(hazard) => setSelectedHazardToView(hazard)}
+            onClearSelectedHazard={() => setSelectedHazardToView(null)}
+          />
         ) : activeTab === 'dashboard' ? (
           <View style={{ flex: 1 }}>
             {/* Top Role Switcher if Moderator or Admin */}
@@ -312,7 +318,11 @@ function RouteXNativeMain() {
               <ModeratorDashboardNative
                 hazards={hazards}
                 onOpenReport={() => setActiveTab('report')}
-                onOpenMap={() => setActiveTab('map')}
+                onOpenMap={(hazard) => {
+                  if (hazard) setSelectedHazardToView(hazard);
+                  setActiveTab('map');
+                }}
+                onSelectHazard={(hazard) => setSelectedHazardToView(hazard)}
                 onOpenAuth={() => {
                   setAuthMode('login');
                   setShowAuthModal(true);

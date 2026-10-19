@@ -31,6 +31,7 @@ import {
   Navigation,
   Sliders,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../theme/ThemeContext';
@@ -38,8 +39,15 @@ import { useAuth } from '../context/AuthContext';
 import { HAZARD_CATEGORIES } from '../constants/hazardTypes';
 import { submitHazard } from '../services/hazardService';
 import { notifyHazardReported } from '../services/notificationService';
+import {
+  aiService,
+  SuggestCategoryResult,
+  ImproveDescriptionResult,
+  CheckDuplicatesResult,
+} from '../services/aiService';
 import { RouteXLogoMark } from './RouteXLogoMark';
 import { LocationPickerMapNative } from './LocationPickerMapNative';
+import { AISuggestionCardNative } from './AISuggestionCardNative';
 
 interface ReportModalNativeProps {
   visible: boolean;
@@ -113,6 +121,13 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
   const [serverError, setServerError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
+  // AI Assistant States
+  const [aiLoading, setAiLoading] = useState<'category' | 'description' | 'duplicates' | null>(null);
+  const [categorySuggestion, setCategorySuggestion] = useState<SuggestCategoryResult | null>(null);
+  const [descriptionSuggestion, setDescriptionSuggestion] = useState<ImproveDescriptionResult | null>(null);
+  const [duplicateCheckResult, setDuplicateCheckResult] = useState<CheckDuplicatesResult | null>(null);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
+
   const resetForm = () => {
     setCategory('flooding');
     setLocationName('');
@@ -127,6 +142,75 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
     setPhotoName(null);
     setServerError('');
     setIsSuccess(false);
+    setAiLoading(null);
+    setCategorySuggestion(null);
+    setDescriptionSuggestion(null);
+    setDuplicateCheckResult(null);
+    setAiNotice(null);
+  };
+
+  const handleSuggestCategory = async () => {
+    if (!description.trim() || description.trim().length < 5) {
+      setServerError('Please enter at least 5 characters in description for AI to analyze.');
+      return;
+    }
+    setAiLoading('category');
+    setAiNotice(null);
+    try {
+      const res = await aiService.suggestCategory(description, category);
+      setCategorySuggestion(res);
+    } catch (err: any) {
+      const msg = err?.data?.error || err?.message || 'AI category suggestion is temporarily unavailable.';
+      setAiNotice(msg);
+    } finally {
+      setAiLoading(null);
+    }
+  };
+
+  const handleImproveDescription = async () => {
+    if (!description.trim() || description.trim().length < 5) {
+      setServerError('Please enter at least 5 characters in description to refine.');
+      return;
+    }
+    setAiLoading('description');
+    setAiNotice(null);
+    try {
+      const res = await aiService.improveDescription(description);
+      setDescriptionSuggestion(res);
+    } catch (err: any) {
+      const msg = err?.data?.error || err?.message || 'AI wording helper is temporarily unavailable.';
+      setAiNotice(msg);
+    } finally {
+      setAiLoading(null);
+    }
+  };
+
+  const handleCheckDuplicates = async () => {
+    if (!latitude || !longitude) {
+      setServerError('Please select a valid location on the map first.');
+      return;
+    }
+    if (!description.trim() || description.trim().length < 5) {
+      setServerError('Please enter a description to compare against existing hazard reports.');
+      return;
+    }
+    setAiLoading('duplicates');
+    setAiNotice(null);
+    try {
+      const res = await aiService.checkDuplicates({
+        latitude,
+        longitude,
+        description,
+        category,
+        radius_km: 1.0,
+      });
+      setDuplicateCheckResult(res);
+    } catch (err: any) {
+      const msg = err?.data?.error || err?.message || 'Duplicate scanner is temporarily unavailable.';
+      setAiNotice(msg);
+    } finally {
+      setAiLoading(null);
+    }
   };
 
   const handleClose = () => {
@@ -384,9 +468,48 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
 
                   {/* 1. Category Selection */}
                   <View style={styles.section}>
-                    <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
-                      Hazard category <Text style={{ color: '#D64545' }}>*</Text>
-                    </Text>
+                    <View style={styles.sectionHeaderRow}>
+                      <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
+                        Hazard category <Text style={{ color: '#D64545' }}>*</Text>
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.aiActionButton,
+                          {
+                            backgroundColor: isDark ? 'rgba(8, 127, 140, 0.18)' : '#F0FDFA',
+                            borderColor: isDark ? 'rgba(8, 127, 140, 0.4)' : '#99F6E4',
+                          },
+                        ]}
+                        onPress={handleSuggestCategory}
+                        disabled={aiLoading === 'category'}
+                        activeOpacity={0.7}
+                      >
+                        {aiLoading === 'category' ? (
+                          <ActivityIndicator size="small" color={theme.teal} />
+                        ) : (
+                          <Sparkles size={12} color={theme.teal} />
+                        )}
+                        <Text style={[styles.aiActionButtonText, { color: theme.teal }]}>
+                          Suggest Category
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {categorySuggestion && (
+                      <AISuggestionCardNative
+                        title={`Suggested: ${categorySuggestion.category_display}`}
+                        subtitle={`${Math.round(categorySuggestion.confidence * 100)}% match confidence`}
+                        reason={categorySuggestion.reason}
+                        applyLabel={`Switch to ${categorySuggestion.category_display}`}
+                        onApply={() => {
+                          setCategory(categorySuggestion.suggested_category);
+                          setCategorySuggestion(null);
+                        }}
+                        onDismiss={() => setCategorySuggestion(null)}
+                        disclaimer={categorySuggestion.disclaimer}
+                      />
+                    )}
+
                     <View style={styles.categoryGrid}>
                       {HAZARD_CATEGORIES.map((cat) => {
                         const isSelected = category === cat.id;
@@ -576,15 +699,32 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
                     />
                   </View>
 
-                  {/* 4. Description with Character Counter */}
+                  {/* 4. Description with Character Counter & AI Refine Wording */}
                   <View style={styles.section}>
                     <View style={styles.labelRow}>
                       <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>
                         Description <Text style={{ color: '#D64545' }}>*</Text>
                       </Text>
-                      <Text style={[styles.charCounter, { color: theme.textMuted }]}>
-                        {description.length}/1000
-                      </Text>
+                      <View style={styles.descActionsRight}>
+                        <TouchableOpacity
+                          style={styles.refineWordingBtn}
+                          onPress={handleImproveDescription}
+                          disabled={aiLoading === 'description'}
+                          activeOpacity={0.7}
+                        >
+                          {aiLoading === 'description' ? (
+                            <ActivityIndicator size="small" color={theme.teal} />
+                          ) : (
+                            <Sparkles size={11} color={theme.teal} />
+                          )}
+                          <Text style={[styles.refineWordingText, { color: theme.teal }]}>
+                            Refine wording
+                          </Text>
+                        </TouchableOpacity>
+                        <Text style={[styles.charCounter, { color: theme.textMuted }]}>
+                          {description.length}/1000
+                        </Text>
+                      </View>
                     </View>
                     <TextInput
                       style={[
@@ -603,6 +743,21 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
                       value={description}
                       onChangeText={setDescription}
                     />
+
+                    {descriptionSuggestion && (
+                      <AISuggestionCardNative
+                        title="Refined Description"
+                        subtitle={descriptionSuggestion.changes_made}
+                        content={descriptionSuggestion.suggested_description}
+                        applyLabel="Use Refined Text"
+                        onApply={() => {
+                          setDescription(descriptionSuggestion.suggested_description);
+                          setDescriptionSuggestion(null);
+                        }}
+                        onDismiss={() => setDescriptionSuggestion(null)}
+                        disclaimer={descriptionSuggestion.disclaimer}
+                      />
+                    )}
                   </View>
 
                   {/* 5. Optional Photo Evidence */}
@@ -676,6 +831,132 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
                           Automatically compressed to WebP &bull; High resolution, low data
                         </Text>
                       </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* 6. Smart Community Deduplication Check */}
+                  <View style={[styles.section, styles.dedupSection, { borderTopColor: theme.borderSubtle }]}>
+                    <View style={styles.sectionHeaderRow}>
+                      <View style={styles.dedupTitleRow}>
+                        <Sparkles size={13} color={theme.teal} />
+                        <Text style={[styles.fieldLabel, { color: theme.textPrimary, marginBottom: 0 }]}>
+                          Smart Deduplication
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.aiActionButton,
+                          {
+                            backgroundColor: isDark ? 'rgba(8, 127, 140, 0.18)' : '#F0FDFA',
+                            borderColor: isDark ? 'rgba(8, 127, 140, 0.4)' : '#99F6E4',
+                          },
+                        ]}
+                        onPress={handleCheckDuplicates}
+                        disabled={aiLoading === 'duplicates'}
+                        activeOpacity={0.7}
+                      >
+                        {aiLoading === 'duplicates' ? (
+                          <ActivityIndicator size="small" color={theme.teal} />
+                        ) : (
+                          <Sparkles size={12} color={theme.teal} />
+                        )}
+                        <Text style={[styles.aiActionButtonText, { color: theme.teal }]}>
+                          Scan Nearby Duplicates
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {duplicateCheckResult && (
+                      <AISuggestionCardNative
+                        title={
+                          duplicateCheckResult.is_possible_duplicate
+                            ? 'Potential Duplicate Detected'
+                            : 'No Duplicates Found'
+                        }
+                        subtitle={`${duplicateCheckResult.nearby_count} active reports within 1km`}
+                        content={
+                          duplicateCheckResult.candidates.length > 0 ? (
+                            <View style={styles.dedupContentContainer}>
+                              <Text
+                                style={[
+                                  styles.dedupAnalysisText,
+                                  { color: isDark ? '#FCD34D' : '#92400E' },
+                                ]}
+                              >
+                                {duplicateCheckResult.analysis}
+                              </Text>
+                              <View style={styles.dedupCandidatesList}>
+                                {duplicateCheckResult.candidates.map((cand) => (
+                                  <View
+                                    key={cand.id}
+                                    style={[
+                                      styles.candCard,
+                                      {
+                                        backgroundColor: isDark ? '#142533' : '#F8FAFC',
+                                        borderColor: theme.border,
+                                      },
+                                    ]}
+                                  >
+                                    <View style={styles.candHeaderRow}>
+                                      <Text
+                                        style={[
+                                          styles.candTitle,
+                                          { color: theme.textPrimary },
+                                        ]}
+                                      >
+                                        #{cand.id} {cand.category_display}
+                                      </Text>
+                                      <Text style={[styles.candDistance, { color: theme.teal }]}>
+                                        {cand.distance_meters}m away
+                                      </Text>
+                                    </View>
+                                    <Text
+                                      style={[styles.candDesc, { color: theme.textSecondary }]}
+                                      numberOfLines={1}
+                                    >
+                                      {cand.description}
+                                    </Text>
+                                    <Text
+                                      style={[
+                                        styles.candRationale,
+                                        { color: isDark ? '#FBBF24' : '#B45309' },
+                                      ]}
+                                    >
+                                      {cand.match_rationale}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                            </View>
+                          ) : (
+                            <Text style={[styles.dedupClearText, { color: '#16A34A' }]}>
+                              {duplicateCheckResult.analysis}
+                            </Text>
+                          )
+                        }
+                        onDismiss={() => setDuplicateCheckResult(null)}
+                        disclaimer={duplicateCheckResult.disclaimer}
+                      />
+                    )}
+
+                    {aiNotice && (
+                      <View
+                        style={[
+                          styles.aiNoticeBox,
+                          {
+                            backgroundColor: isDark ? 'rgba(251, 191, 36, 0.12)' : '#FEF3C7',
+                            borderColor: isDark ? 'rgba(251, 191, 36, 0.35)' : '#FDE68A',
+                          },
+                        ]}
+                      >
+                        <AlertCircle size={13} color="#D97706" />
+                        <Text style={[styles.aiNoticeText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
+                          {aiNotice}
+                        </Text>
+                        <TouchableOpacity onPress={() => setAiNotice(null)} style={{ padding: 2 }}>
+                          <X size={12} color={isDark ? '#FCD34D' : '#92400E'} />
+                        </TouchableOpacity>
+                      </View>
                     )}
                   </View>
                 </ScrollView>
@@ -1137,5 +1418,102 @@ const styles = StyleSheet.create({
   authSecondaryBtnText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  aiActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  aiActionButtonText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  descActionsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refineWordingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  refineWordingText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  dedupSection: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  dedupTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  dedupContentContainer: {
+    gap: 8,
+  },
+  dedupAnalysisText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  dedupCandidatesList: {
+    gap: 6,
+    maxHeight: 180,
+  },
+  candCard: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 2,
+  },
+  candHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  candTitle: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  candDistance: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  candDesc: {
+    fontSize: 11,
+  },
+  candRationale: {
+    fontSize: 10,
+    fontStyle: 'italic',
+  },
+  dedupClearText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  aiNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 6,
+    marginTop: 6,
+  },
+  aiNoticeText: {
+    fontSize: 11,
+    flex: 1,
   },
 });

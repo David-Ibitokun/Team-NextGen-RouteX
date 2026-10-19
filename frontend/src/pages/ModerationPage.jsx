@@ -607,7 +607,7 @@ export function ModerationPage() {
                         <span>Reported by: <strong>{report.reporter?.username || "Citizen"}</strong></span>
                         <span>Confirmations: <strong>{report.confirmations_count}</strong></span>
                         <Link
-                          to={`/map?lat=${report.latitude}&lng=${report.longitude}`}
+                          to={`/map?hazard_id=${report.id}&lat=${report.latitude}&lng=${report.longitude}`}
                           className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 font-semibold hover:underline"
                         >
                           View Map
