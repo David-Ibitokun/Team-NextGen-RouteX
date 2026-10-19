@@ -30,12 +30,14 @@ import {
   TreePine,
   HelpCircle,
   Search,
+  Maximize2,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { HazardItem } from '../constants/hazardTypes';
 import { moderationService } from '../services/apiClient';
 import { PaginationControlsNative } from './PaginationControlsNative';
+import { ImageViewerModalNative } from './ImageViewerModalNative';
 
 interface ModeratorDashboardNativeProps {
   hazards: HazardItem[];
@@ -54,6 +56,7 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
   const { user, isModerator, isAdmin } = useAuth();
   const { width: windowWidth } = useWindowDimensions();
 
+  const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -66,6 +69,10 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
   const [ordering, setOrdering] = useState('-flags_count');
   const [stats, setStats] = useState<any>(null);
 
+  // Moderation Audit History State
+  const [history, setHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   // Action Modal State
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<any>(null);
@@ -74,6 +81,7 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
   const [submittingAction, setSubmittingAction] = useState(false);
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+  const [selectedPreviewImage, setSelectedPreviewImage] = useState<{ url: string; title: string; subtitle: string } | null>(null);
 
   const loadQueueData = useCallback(async () => {
     setLoading(true);
@@ -95,25 +103,24 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
       setTotalCount(count);
       if (statsData) setStats(statsData);
     } catch {
-      // Fallback filter over hazards
-      const fallback = hazards.filter((h) => {
-        if (flaggedOnly && !(h.flags_count && h.flags_count > 0)) return false;
-        if (statusFilter !== 'all' && h.status !== statusFilter) return false;
-        if (categoryFilter !== 'all' && h.category !== categoryFilter) return false;
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          const matchDesc = h.description && h.description.toLowerCase().includes(q);
-          const matchLoc = h.location_name && h.location_name.toLowerCase().includes(q);
-          if (!matchDesc && !matchLoc) return false;
-        }
-        return true;
-      });
-      setReports(fallback);
-      setTotalCount(fallback.length);
+      setReports([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, flaggedOnly, statusFilter, categoryFilter, searchQuery, ordering, hazards]);
+  }, [page, pageSize, flaggedOnly, statusFilter, categoryFilter, searchQuery, ordering]);
+
+  const loadHistoryData = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const historyData = await moderationService.getAllHistory();
+      setHistory(Array.isArray(historyData) ? historyData : historyData?.results || []);
+    } catch {
+      setHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
 
   const clearFilters = () => {
     setFlaggedOnly(false);
@@ -134,6 +141,12 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
   useEffect(() => {
     loadQueueData();
   }, [loadQueueData]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      loadHistoryData();
+    }
+  }, [activeTab, loadHistoryData]);
 
   const handleOpenActionModal = (report: any, action: 'confirm' | 'resolve' | 'review') => {
     setSelectedReport(report);
@@ -320,7 +333,51 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
         </View>
       </View>
 
+      {/* Tab Bar Underline */}
+      <View style={[styles.tabBarWrapper, { borderBottomColor: theme.border }]}>
+        <View style={styles.tabsRow}>
+          <TouchableOpacity
+            style={[
+              styles.navTab,
+              activeTab === 'queue' && [styles.activeNavTab, { borderBottomColor: '#FBBF24' }],
+            ]}
+            onPress={() => setActiveTab('queue')}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.navTabText,
+                { color: activeTab === 'queue' ? '#FBBF24' : theme.textMuted },
+                activeTab === 'queue' && styles.activeNavTabText,
+              ]}
+            >
+              Triage Queue ({totalCount})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.navTab,
+              activeTab === 'history' && [styles.activeNavTab, { borderBottomColor: '#FBBF24' }],
+            ]}
+            onPress={() => setActiveTab('history')}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.navTabText,
+                { color: activeTab === 'history' ? '#FBBF24' : theme.textMuted },
+                activeTab === 'history' && styles.activeNavTabText,
+              ]}
+            >
+              Moderation History ({history.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* 3. Queue Report Feed */}
+      {activeTab === 'queue' && (
       <View style={styles.queueSection}>
         {/* Enhanced Moderation Filter Card */}
         <View style={[styles.filterCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -534,11 +591,22 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
           <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <CheckCircle2 size={36} color="#16A34A" />
             <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>
-              Queue Completely Clear
+              {!(isModerator || isAdmin) ? 'Moderator Access Required' : 'Queue Completely Clear'}
             </Text>
             <Text style={[styles.emptySub, { color: theme.textMuted }]}>
-              No items requiring moderation action currently match the selected criteria.
+              {!(isModerator || isAdmin)
+                ? 'Sign in with safety moderator credentials to triage citizen flags, verify hazard clearance, or issue notices.'
+                : 'No incidents requiring moderation action currently match the selected criteria.'}
             </Text>
+            {!(isModerator || isAdmin) && onOpenAuth && (
+              <TouchableOpacity
+                style={[styles.primaryActionBtn, { backgroundColor: '#FBBF24', marginTop: 10 }]}
+                onPress={onOpenAuth}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.primaryActionText, { color: '#1E293B' }]}>Sign In as Moderator</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           reports.map((report) => (
@@ -601,9 +669,23 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
               </Text>
 
               {report.photo && (
-                <View style={styles.photoWrapper}>
-                  <Image source={{ uri: report.photo }} style={styles.photo} />
-                </View>
+                <TouchableOpacity
+                  style={[styles.photoWrapper, { borderColor: theme.border, backgroundColor: theme.surfaceSubtle }]}
+                  activeOpacity={0.85}
+                  onPress={() =>
+                    setSelectedPreviewImage({
+                      url: report.photo as string,
+                      title: report.location_name || report.location_label || 'Reported Incident',
+                      subtitle: `${report.category?.replace('_', ' ')?.toUpperCase() || 'HAZARD'} \u2022 ${report.status?.replace('_', ' ')?.toUpperCase() || 'REPORTED'}`,
+                    })
+                  }
+                >
+                  <Image source={{ uri: report.photo }} style={styles.photo} resizeMode="cover" />
+                  <View style={styles.zoomPill}>
+                    <Maximize2 size={11} color="#FFFFFF" />
+                    <Text style={styles.zoomPillText}>Tap to expand</Text>
+                  </View>
+                </TouchableOpacity>
               )}
 
               {/* Action Buttons */}
@@ -652,6 +734,126 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
           loading={loading}
         />
       </View>
+      )}
+
+      {/* History Tab */}
+      {activeTab === 'history' && (
+        <View style={styles.historySection}>
+          <View style={styles.historySectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
+              Moderation Audit History
+            </Text>
+            <TouchableOpacity onPress={loadHistoryData} style={styles.refreshBtn} activeOpacity={0.7}>
+              <RefreshCw size={12} color="#FBBF24" />
+              <Text style={[styles.refreshText, { color: '#FBBF24' }]}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loadingHistory ? (
+            <ActivityIndicator size="small" color="#FBBF24" style={{ marginVertical: 24 }} />
+          ) : history.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Shield size={36} color="#FBBF24" />
+              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>
+                {!(isModerator || isAdmin) ? 'Moderator Access Required' : 'No History Recorded'}
+              </Text>
+              <Text style={[styles.emptySub, { color: theme.textMuted }]}>
+                {!(isModerator || isAdmin)
+                  ? 'Sign in with a moderator account to inspect the platform moderation action log.'
+                  : 'No moderation actions have been recorded yet.'}
+              </Text>
+              {!(isModerator || isAdmin) && onOpenAuth && (
+                <TouchableOpacity
+                  style={[styles.primaryActionBtn, { backgroundColor: '#FBBF24', marginTop: 10 }]}
+                  onPress={onOpenAuth}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.primaryActionText, { color: '#1E293B' }]}>Sign In as Moderator</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            history.map((item) => {
+              const actionLabel = item.action?.toUpperCase() || 'MODERATED';
+              const moderator = item.moderator_name || 'System';
+              let formattedDate = 'Recently';
+              if (item.created_at) {
+                try {
+                  formattedDate = new Date(item.created_at).toLocaleString([], {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  });
+                } catch {
+                  formattedDate = String(item.created_at);
+                }
+              }
+
+              return (
+                <View
+                  key={item.id}
+                  style={[styles.historyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                >
+                  <View style={styles.historyTopRow}>
+                    <View
+                      style={[
+                        styles.historyActionBadge,
+                        {
+                          backgroundColor:
+                            item.action === 'confirm'
+                              ? 'rgba(39, 134, 91, 0.15)'
+                              : item.action === 'resolve'
+                              ? 'rgba(37, 99, 235, 0.15)'
+                              : 'rgba(245, 158, 11, 0.15)',
+                          borderColor:
+                            item.action === 'confirm'
+                              ? '#27865B'
+                              : item.action === 'resolve'
+                              ? '#2563EB'
+                              : '#F59E0B',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.historyActionText,
+                          {
+                            color:
+                              item.action === 'confirm'
+                                ? '#27865B'
+                                : item.action === 'resolve'
+                                ? '#2563EB'
+                                : '#D97706',
+                          },
+                        ]}
+                      >
+                        {actionLabel}
+                      </Text>
+                    </View>
+                    <Text style={[styles.historyTime, { color: theme.textMuted }]}>
+                      {formattedDate}
+                    </Text>
+                  </View>
+
+                  <View style={styles.historyMetaRow}>
+                    <Text style={[styles.historyModerator, { color: theme.textPrimary }]}>
+                      By {moderator}
+                    </Text>
+                    {item.report && (
+                      <Text style={[styles.historyReportLink, { color: theme.teal }]}>
+                        Report #{item.report}
+                      </Text>
+                    )}
+                  </View>
+
+                  <Text style={[styles.historyReason, { color: theme.textSecondary }]}>
+                    {item.reason || 'No additional note recorded.'}
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+      )}
 
       {/* 4. Action Modal with Keyboard Avoidance */}
       <Modal
@@ -663,7 +865,7 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
             style={styles.keyboardAvoider}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
           >
             <View style={[styles.actionModalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -750,6 +952,17 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      {/* Fullscreen Photo Modal */}
+      {selectedPreviewImage ? (
+        <ImageViewerModalNative
+          visible={Boolean(selectedPreviewImage)}
+          imageUrl={selectedPreviewImage?.url || null}
+          title={selectedPreviewImage?.title}
+          subtitle={selectedPreviewImage?.subtitle}
+          onClose={() => setSelectedPreviewImage(null)}
+        />
+      ) : null}
     </ScrollView>
   );
 };
@@ -1096,14 +1309,34 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   photoWrapper: {
-    height: 120,
+    height: 180,
     borderRadius: 10,
     overflow: 'hidden',
-    marginTop: 2,
+    marginTop: 6,
+    marginBottom: 6,
+    borderWidth: 1,
+    position: 'relative',
   },
   photo: {
     width: '100%',
     height: '100%',
+  },
+  zoomPill: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  zoomPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   actionsRow: {
     flexDirection: 'row',
@@ -1238,6 +1471,96 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   submitActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  historySection: {
+    gap: 10,
+  },
+  historyCard: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  historyTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyActionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  historyActionText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  historyTime: {
+    fontSize: 11,
+  },
+  historyMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyModerator: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  historyReportLink: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  historyReason: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  historySectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  tabBarWrapper: {
+    borderBottomWidth: 1,
+    marginHorizontal: -2,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  navTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeNavTab: {
+    borderBottomWidth: 2,
+  },
+  navTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  activeNavTabText: {
+    fontWeight: '800',
+  },
+  primaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  primaryActionText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',

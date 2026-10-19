@@ -18,6 +18,7 @@ import {
   Sliders,
   Search,
   ArrowUpDown,
+  Maximize2,
 } from "lucide-react";
 import { AppHeader } from "../components/layout/AppHeader";
 import { CategoryBadge } from "../components/hazards/CategoryBadge";
@@ -26,6 +27,7 @@ import { LoadingState } from "../components/feedback/LoadingState";
 import { ErrorState } from "../components/feedback/ErrorState";
 import { EmptyState } from "../components/feedback/EmptyState";
 import { PaginationBar } from "../components/common/PaginationBar";
+import { ImageLightboxModal } from "../components/common/ImageLightboxModal";
 import { moderationService } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
 
@@ -36,6 +38,7 @@ export function ModerationPage() {
   const [activeTab, setActiveTab] = useState("queue"); // "queue" | "history"
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -565,12 +568,28 @@ export function ModerationPage() {
                       </div>
 
                       {report.photo && (
-                        <div className="mt-2">
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedImage({
+                              url: report.photo,
+                              title: report.location_label || "Incident Observation",
+                              subtitle: `${report.category_display || report.category || "Incident"} \u2022 ${report.status_display || report.status || "Reported"}`,
+                            });
+                          }}
+                          className="mt-2.5 relative h-36 w-60 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 cursor-pointer group shadow-xs hover:border-teal-500 transition-all"
+                        >
                           <img
                             src={report.photo}
                             alt="Hazard observation"
-                            className="h-28 w-44 object-cover rounded-xl border border-slate-200 dark:border-slate-700"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-end justify-end p-2">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold text-white bg-black/60 backdrop-blur-xs group-hover:bg-[#087F8C] transition-colors shadow-xs">
+                              <Maximize2 className="w-3 h-3" />
+                              Expand
+                            </span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -789,6 +808,14 @@ export function ModerationPage() {
           </div>
         )}
       </main>
+
+      <ImageLightboxModal
+        isOpen={Boolean(selectedImage)}
+        imageUrl={selectedImage?.url}
+        title={selectedImage?.title}
+        subtitle={selectedImage?.subtitle}
+        onClose={() => setSelectedImage(null)}
+      />
     </div>
   );
 }

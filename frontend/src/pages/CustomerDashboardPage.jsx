@@ -25,6 +25,7 @@ import {
   Filter,
   X,
   ArrowUpDown,
+  Maximize2,
 } from "lucide-react";
 import { AppHeader } from "../components/layout/AppHeader";
 import { useAuth } from "../context/AuthContext";
@@ -35,6 +36,7 @@ import { LoadingState } from "../components/feedback/LoadingState";
 import { ErrorState } from "../components/feedback/ErrorState";
 import { EmptyState } from "../components/feedback/EmptyState";
 import { PaginationBar } from "../components/common/PaginationBar";
+import { ImageLightboxModal } from "../components/common/ImageLightboxModal";
 
 export function CustomerDashboardPage() {
   const { user, isAuthenticated, loading: authLoading, refreshMe, deleteAccount } = useAuth();
@@ -43,6 +45,7 @@ export function CustomerDashboardPage() {
   const [activeTab, setActiveTab] = useState("reports"); // "reports" | "impact" | "settings"
   const [reports, setReports] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -504,12 +507,28 @@ export function CustomerDashboardPage() {
                       </div>
 
                       {report.photo && (
-                        <div className="relative h-32 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedImage({
+                              url: report.photo,
+                              title: report.location_label || "Road Hazard",
+                              subtitle: `${report.category_display || report.category || "Incident"} \u2022 ${report.status_display || report.status || "Reported"}`,
+                            });
+                          }}
+                          className="relative h-48 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 cursor-pointer group shadow-xs hover:border-teal-500 transition-all"
+                        >
                           <img
                             src={report.photo}
                             alt="Hazard observation"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-end justify-end p-2.5">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white bg-black/60 backdrop-blur-xs group-hover:bg-[#087F8C] transition-colors shadow-xs">
+                              <Maximize2 className="w-3.5 h-3.5" />
+                              Click to expand
+                            </span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -728,6 +747,14 @@ export function CustomerDashboardPage() {
           </div>
         )}
       </main>
+
+      <ImageLightboxModal
+        isOpen={Boolean(selectedImage)}
+        imageUrl={selectedImage?.url}
+        title={selectedImage?.title}
+        subtitle={selectedImage?.subtitle}
+        onClose={() => setSelectedImage(null)}
+      />
     </div>
   );
 }

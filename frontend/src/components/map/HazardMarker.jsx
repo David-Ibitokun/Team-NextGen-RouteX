@@ -67,10 +67,10 @@ export function HazardMarker({ hazard, isSelected = false, onSelect }) {
     >
       <Popup>
         <div className="p-1 max-w-xs text-xs font-sans">
-          <div className="font-bold text-[#142B3B] mb-1">
+          <div className="font-bold text-[#142B3B] dark:text-slate-100 mb-1">
             {hazard.location_label || "Hazard Location"}
           </div>
-          <div className="text-[#667784] mb-2 line-clamp-2">
+          <div className="text-[#667784] dark:text-slate-300 mb-2 line-clamp-2">
             {hazard.description}
           </div>
           <button

@@ -274,13 +274,13 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
       visible={visible}
       animationType="slide"
       transparent={true}
-      statusBarTranslucent={true}
+      statusBarTranslucent={false}
       onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
         <KeyboardAvoidingView
           style={styles.keyboardAvoider}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View
             style={[

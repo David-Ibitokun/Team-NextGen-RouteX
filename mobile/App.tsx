@@ -160,21 +160,28 @@ function RouteXNativeMain() {
   }
 
   const handleConfirm = async (id: string | number) => {
-    // Optimistic UI update
-    setHazards((prev) =>
-      prev.map((h) =>
-        h.id === id ? { ...h, confirmations_count: (h.confirmations_count ?? 1) + 1 } : h
-      )
-    );
+    try {
+      const resp = await confirmHazard(id);
+      setHazards((prev) =>
+        prev.map((h) =>
+          h.id === id
+            ? {
+                ...h,
+                confirmations_count: resp?.confirmations_count ?? (h.confirmations_count ?? 0) + 1,
+                status: resp?.status ?? h.status,
+              }
+            : h
+        )
+      );
 
-    // Call API
-    await confirmHazard(id);
-
-    // Dispatch local notification alert
-    const targetHazard = hazards.find((h) => h.id === id);
-    if (targetHazard) {
-      await notifyHazardConfirmed(targetHazard.category, targetHazard.location_name);
-      refreshNotificationsCount();
+      // Dispatch local notification alert
+      const targetHazard = hazards.find((h) => h.id === id);
+      if (targetHazard) {
+        await notifyHazardConfirmed(targetHazard.category, targetHazard.location_name);
+        refreshNotificationsCount();
+      }
+    } catch (err: any) {
+      console.warn('[RouteX] Confirm hazard error:', err?.message || err);
     }
   };
 
@@ -316,6 +323,10 @@ function RouteXNativeMain() {
                 hazards={hazards}
                 onOpenReport={() => setActiveTab('report')}
                 onOpenMap={() => setActiveTab('map')}
+                onOpenAuth={() => {
+                  setAuthMode('login');
+                  setShowAuthModal(true);
+                }}
               />
             ) : (
               <CitizenDashboardNative

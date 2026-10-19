@@ -34,12 +34,14 @@ import {
   Search,
   Filter,
   X,
+  Maximize2,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { HazardItem } from '../constants/hazardTypes';
 import { authService } from '../services/apiClient';
 import { PaginationControlsNative } from './PaginationControlsNative';
+import { ImageViewerModalNative } from './ImageViewerModalNative';
 
 interface CitizenDashboardNativeProps {
   hazards: HazardItem[];
@@ -73,6 +75,7 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
   const [myReports, setMyReports] = useState<HazardItem[]>([]);
   const [loadingMyReports, setLoadingMyReports] = useState(false);
   const [summaryData, setSummaryData] = useState<any>(null);
+  const [selectedPreviewImage, setSelectedPreviewImage] = useState<{ url: string; title: string; subtitle: string } | null>(null);
 
   // Profile Edit State
   const [displayName, setDisplayName] = useState('');
@@ -118,6 +121,13 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
   useEffect(() => {
     if (isAuthenticated) {
       loadPersonalReports();
+    } else {
+      // Load global community overview statistics directly from backend DB
+      authService.getDashboardSummary()
+        .then((resp) => {
+          if (resp) setSummaryData(resp);
+        })
+        .catch(() => {});
     }
   }, [isAuthenticated, loadPersonalReports]);
 
@@ -679,9 +689,23 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
                 </Text>
 
                 {report.photo && (
-                  <View style={styles.reportThumbWrapper}>
-                    <Image source={{ uri: report.photo }} style={styles.reportThumb} />
-                  </View>
+                  <TouchableOpacity
+                    style={[styles.reportThumbWrapper, { borderColor: theme.border, backgroundColor: theme.surfaceSubtle }]}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      setSelectedPreviewImage({
+                        url: report.photo as string,
+                        title: report.location_name || report.location_label || 'Reported Location',
+                        subtitle: `${report.category?.replace('_', ' ')?.toUpperCase() || 'HAZARD'} \u2022 ${report.status?.replace('_', ' ')?.toUpperCase() || 'REPORTED'}`,
+                      })
+                    }
+                  >
+                    <Image source={{ uri: report.photo }} style={styles.reportThumb} resizeMode="cover" />
+                    <View style={styles.zoomPill}>
+                      <Maximize2 size={11} color="#FFFFFF" />
+                      <Text style={styles.zoomPillText}>Tap to expand</Text>
+                    </View>
+                  </TouchableOpacity>
                 )}
 
                 <View style={[styles.reportFooter, { borderTopColor: theme.borderSubtle }]}>
@@ -933,6 +957,17 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
           </View>
         </View>
       )}
+
+      {/* Fullscreen Photo Modal */}
+      {selectedPreviewImage ? (
+        <ImageViewerModalNative
+          visible={Boolean(selectedPreviewImage)}
+          imageUrl={selectedPreviewImage?.url || null}
+          title={selectedPreviewImage?.title}
+          subtitle={selectedPreviewImage?.subtitle}
+          onClose={() => setSelectedPreviewImage(null)}
+        />
+      ) : null}
     </ScrollView>
   );
 };
@@ -1309,14 +1344,34 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   reportThumbWrapper: {
-    height: 120,
+    height: 180,
     borderRadius: 10,
     overflow: 'hidden',
-    marginTop: 2,
+    marginTop: 6,
+    marginBottom: 6,
+    borderWidth: 1,
+    position: 'relative',
   },
   reportThumb: {
     width: '100%',
     height: '100%',
+  },
+  zoomPill: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  zoomPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   reportFooter: {
     flexDirection: 'row',

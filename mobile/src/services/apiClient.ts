@@ -1,10 +1,20 @@
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HazardItem } from '../constants/hazardTypes';
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
-export const API_BASE_URL = configuredApiUrl
-  ? configuredApiUrl.replace(/\/+$/, '')
-  : 'http://192.168.0.141:8000/api/v1';
+
+export const getApiBaseUrl = (): string => {
+  if (configuredApiUrl) {
+    return configuredApiUrl.replace(/\/+$/, '');
+  }
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+    return `http://${window.location.hostname}:8000/api/v1`;
+  }
+  return 'http://192.168.0.141:8000/api/v1';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 const STORAGE_KEYS = {
   CSRF_TOKEN: '@routex_csrf_token',
@@ -15,6 +25,14 @@ const STORAGE_KEYS = {
 // In-memory cookie and CSRF cache
 let cachedCsrfToken: string | null = null;
 let cachedSessionId: string | null = null;
+
+function getWebCookie(name: string): string | null {
+  if (Platform.OS === 'web' && typeof document !== 'undefined' && document.cookie) {
+    const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
+    return match ? decodeURIComponent(match[3]) : null;
+  }
+  return null;
+}
 
 /**
  * Initialize tokens from AsyncStorage on app boot
@@ -28,9 +46,9 @@ export async function initializeApiSession(): Promise<{
       AsyncStorage.getItem(STORAGE_KEYS.CSRF_TOKEN),
       AsyncStorage.getItem(STORAGE_KEYS.SESSION_ID),
     ]);
-    cachedCsrfToken = storedCsrf;
-    cachedSessionId = storedSession;
-    return { csrfToken: storedCsrf, sessionId: storedSession };
+    cachedCsrfToken = storedCsrf || getWebCookie('csrftoken');
+    cachedSessionId = storedSession || getWebCookie('sessionid');
+    return { csrfToken: cachedCsrfToken, sessionId: cachedSessionId };
   } catch {
     return { csrfToken: null, sessionId: null };
   }
@@ -101,13 +119,14 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit & { timeoutMs?: number } = {}
 ): Promise<T> {
-  if (!API_BASE_URL && !endpoint.startsWith('http')) {
+  const baseUrl = getApiBaseUrl();
+  if (!baseUrl && !endpoint.startsWith('http')) {
     throw new Error('EXPO_PUBLIC_API_URL is not configured. Set it in mobile/.env and restart Expo.');
   }
 
   const url = endpoint.startsWith('http')
     ? endpoint
-    : `${API_BASE_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+    : `${baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
   const method = (options.method || 'GET').toUpperCase();
   const headers: Record<string, string> = {
@@ -115,21 +134,32 @@ export async function apiRequest<T = any>(
     ...(options.headers as Record<string, string> || {}),
   };
 
-  // Build Cookie Header
-  const cookies: string[] = [];
-  if (cachedSessionId) {
-    cookies.push(`sessionid=${cachedSessionId}`);
+  // Provide explicit session authorization header for guaranteed mobile authentication
+  const effectiveSessionId = cachedSessionId || getWebCookie('sessionid');
+  if (effectiveSessionId) {
+    headers['X-Session-ID'] = effectiveSessionId;
+    headers['Authorization'] = `Session ${effectiveSessionId}`;
   }
-  if (cachedCsrfToken) {
-    cookies.push(`csrftoken=${cachedCsrfToken}`);
-  }
-  if (cookies.length > 0) {
-    headers['Cookie'] = cookies.join('; ');
+
+  const effectiveCsrfToken = cachedCsrfToken || getWebCookie('csrftoken');
+
+  // Build Cookie Header on native platforms (browser sets Cookie automatically via credentials: 'include')
+  if (Platform.OS !== 'web') {
+    const cookies: string[] = [];
+    if (effectiveSessionId) {
+      cookies.push(`sessionid=${effectiveSessionId}`);
+    }
+    if (effectiveCsrfToken) {
+      cookies.push(`csrftoken=${effectiveCsrfToken}`);
+    }
+    if (cookies.length > 0) {
+      headers['Cookie'] = cookies.join('; ');
+    }
   }
 
   // Attach X-CSRFToken on mutation requests
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && cachedCsrfToken) {
-    headers['X-CSRFToken'] = cachedCsrfToken;
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && effectiveCsrfToken) {
+    headers['X-CSRFToken'] = effectiveCsrfToken;
   }
 
   const timeoutMs = options.timeoutMs ?? 15000;
@@ -141,7 +171,7 @@ export async function apiRequest<T = any>(
       ...options,
       headers,
       signal: controller.signal,
-      credentials: 'omit', // We explicitly supply Cookie header for uniform Android/iOS behavior
+      credentials: 'include', // Ensures cookies are retained and sent uniformly
     });
     clearTimeout(timer);
 
@@ -219,6 +249,9 @@ export const authService = {
     });
 
     if (data) {
+      if (data.session_id) {
+        await persistTokens({ sessionId: data.session_id });
+      }
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_USER, JSON.stringify(data));
     }
     return data;
@@ -244,6 +277,9 @@ export const authService = {
     });
 
     if (data) {
+      if (data.session_id) {
+        await persistTokens({ sessionId: data.session_id });
+      }
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_USER, JSON.stringify(data));
     }
     return data;
@@ -397,6 +433,12 @@ export const moderationService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+  },
+  async getAllHistory() {
+    return apiRequest('/moderation/history/');
+  },
+  async getReportHistory(reportId: string | number) {
+    return apiRequest(`/moderation/reports/${reportId}/actions/`);
   },
 };
 

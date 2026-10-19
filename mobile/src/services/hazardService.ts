@@ -73,12 +73,13 @@ export const MOCK_HAZARDS: HazardItem[] = [
 ];
 
 /**
- * Fetch hazards from backend API with fallback to mock data if offline
+ * Fetch hazards from backend API database
  */
 export async function fetchHazards(params: {
   category?: string;
   status?: string;
   bbox?: string;
+  page_size?: number;
 } = {}): Promise<HazardItem[]> {
   const queryParts: string[] = [];
   if (params.category && params.category !== 'all') {
@@ -90,40 +91,30 @@ export async function fetchHazards(params: {
   if (params.bbox) {
     queryParts.push(`bbox=${encodeURIComponent(params.bbox)}`);
   }
+  const pageSize = params.page_size ?? 100;
+  queryParts.push(`page_size=${pageSize}`);
   const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
 
   try {
-    const data = await apiRequest(`/hazards/${queryString}`, { timeoutMs: 6000 });
-    const items: HazardItem[] = Array.isArray(data) ? data : data.results || [];
-    if (items.length > 0) {
-      return items;
-    }
+    const data = await apiRequest(`/hazards/${queryString}`, { timeoutMs: 15000 });
+    const rawItems: any[] = Array.isArray(data) ? data : data?.results || [];
+    const items: HazardItem[] = rawItems.map((h) => ({
+      ...h,
+      location_name: h.location_name || h.location_label || 'Lagos, Nigeria',
+      location_label: h.location_label || h.location_name || 'Lagos, Nigeria',
+    }));
+    return items;
   } catch (err) {
-    // If backend is offline or network fails, fall back to mock data
+    console.warn('[RouteX] Error fetching live hazards from backend database:', err);
+    return [];
   }
-
-  // Graceful offline fallback with mock data for smooth offline demo
-  let filtered = [...MOCK_HAZARDS];
-  if (params.category && params.category !== 'all') {
-    filtered = filtered.filter((h) => h.category === params.category);
-  }
-  if (params.status && params.status !== 'all') {
-    filtered = filtered.filter((h) => h.status === params.status);
-  }
-  return filtered;
 }
 
 /**
- * Fetch hazard by ID
+ * Fetch hazard by ID from backend database
  */
 export async function getHazardById(id: string | number): Promise<HazardItem> {
-  try {
-    return await apiRequest<HazardItem>(`/hazards/${id}/`);
-  } catch (err) {
-    const found = MOCK_HAZARDS.find((h) => String(h.id) === String(id));
-    if (found) return found;
-    throw err;
-  }
+  return await apiRequest<HazardItem>(`/hazards/${id}/`);
 }
 
 /**
@@ -242,18 +233,13 @@ export async function submitHazard(payload: {
  * Confirm hazard presence
  */
 export async function confirmHazard(id: string | number): Promise<any> {
-  try {
-    await authService.getCsrfToken().catch(() => '');
-    return await apiRequest(`/hazards/${id}/confirm/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-  } catch (err) {
-    // Return mock success if offline
-    return { status: 'confirmed', id };
-  }
+  await authService.getCsrfToken().catch(() => '');
+  return await apiRequest(`/hazards/${id}/confirm/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 }
 
 /**

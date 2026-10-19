@@ -188,6 +188,10 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.accounts.authentication.RouteXSessionAuthentication",
+        "rest_framework.authentication.BasicAuthentication",
+    ],
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
         "rest_framework.parsers.FormParser",

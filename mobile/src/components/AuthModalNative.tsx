@@ -201,14 +201,19 @@ export const AuthModalNative: React.FC<AuthModalNativeProps> = ({
       visible={visible}
       animationType="slide"
       transparent={true}
-      statusBarTranslucent={true}
+      statusBarTranslucent={false}
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
         style={styles.modalOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
+        <TouchableOpacity
+          style={styles.backdropPressable}
+          activeOpacity={1}
+          onPress={handleClose}
+        />
         <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: theme.borderSubtle }]}>
@@ -699,11 +704,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
+  backdropPressable: {
+    ...StyleSheet.absoluteFill,
+  },
   modalCard: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,
     maxHeight: '90%',
+    width: '100%',
     elevation: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },

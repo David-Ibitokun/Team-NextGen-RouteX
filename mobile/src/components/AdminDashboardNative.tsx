@@ -37,6 +37,7 @@ interface AdminDashboardNativeProps {
   hazards: HazardItem[];
   onOpenReport: () => void;
   onOpenMap: () => void;
+  onOpenAuth?: () => void;
 }
 
 type AdminTab = 'settings' | 'users' | 'audit';
@@ -45,6 +46,7 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
   hazards,
   onOpenReport,
   onOpenMap,
+  onOpenAuth,
 }) => {
   const { isDark, theme } = useTheme();
   const { user, isAdmin } = useAuth();
@@ -83,7 +85,7 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
       const data = await adminService.getStats();
       if (data) setStats(data);
     } catch {
-      // Ignored
+      // Handled in UI
     } finally {
       setLoadingStats(false);
     }
@@ -94,7 +96,7 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
       const data = await adminService.getSettings();
       if (data) setSettings(data);
     } catch {
-      // Fallback
+      // Handled in UI
     }
   }, []);
 
@@ -110,13 +112,8 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
       setUsers(items);
       setUserTotalCount(count);
     } catch {
-      // Fallback sample users
-      setUsers([
-        { id: 1, username: 'admin', display_name: 'Admin User', role: 'admin', email: 'admin@routex.org' },
-        { id: 2, username: 'moderator', display_name: 'Mod User', role: 'moderator', email: 'moderator@routex.org' },
-        { id: 3, username: 'citizen', display_name: 'Citizen Demo', role: 'citizen', email: 'citizen@routex.org' },
-      ]);
-      setUserTotalCount(3);
+      setUsers([]);
+      setUserTotalCount(0);
     } finally {
       setLoadingUsers(false);
     }
@@ -128,10 +125,7 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
       const data = await adminService.getAuditLogs();
       setAuditLogs(Array.isArray(data) ? data : data?.results || []);
     } catch {
-      setAuditLogs([
-        { id: 1, action: 'CONFIRM', timestamp: new Date().toISOString(), message: 'Report #12 confirmed by community threshold' },
-        { id: 2, action: 'SETTINGS_UPDATE', timestamp: new Date().toISOString(), message: 'System threshold verified at 3 votes' },
-      ]);
+      setAuditLogs([]);
     } finally {
       setLoadingAudit(false);
     }
@@ -164,8 +158,15 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
 
   const isWide = windowWidth > 500;
 
-  const totalUsers = stats?.total_users ?? 48;
-  const totalHazards = stats?.total_hazards ?? hazards.length;
+  const totalUsers = stats?.users?.total ?? 0;
+  const totalHazards = stats?.hazards?.total ?? hazards.length;
+  const citizensCount = stats?.users?.citizens ?? 0;
+  const moderatorsCount = stats?.users?.moderators ?? 0;
+  const adminsCount = stats?.users?.admins ?? 0;
+  const activeHazardsCount = stats?.hazards?.active ?? 0;
+  const confirmedHazardsCount = stats?.hazards?.confirmed ?? 0;
+  const confirmationThreshold = stats?.settings?.confirmation_threshold ?? settings?.confirmation_threshold ?? 3;
+  const freshnessHours = stats?.settings?.freshness_hours ?? settings?.freshness_hours ?? 24;
 
   return (
     <ScrollView
@@ -216,7 +217,9 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
             <Users size={15} color="#818CF8" />
           </View>
           <Text style={[styles.metricValue, { color: '#818CF8' }]}>{totalUsers}</Text>
-          <Text style={[styles.metricSub, { color: theme.textMuted }]}>Total community accounts</Text>
+          <Text style={[styles.metricSub, { color: theme.textMuted }]}>
+            {citizensCount} Citizens • {moderatorsCount} Mods • {adminsCount} Admins
+          </Text>
         </View>
 
         <View
@@ -230,7 +233,9 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
             <ShieldAlert size={15} color="#F2B544" />
           </View>
           <Text style={[styles.metricValue, { color: theme.textPrimary }]}>{totalHazards}</Text>
-          <Text style={[styles.metricSub, { color: theme.textMuted }]}>Reported across network</Text>
+          <Text style={[styles.metricSub, { color: theme.textMuted }]}>
+            {activeHazardsCount} Active • {confirmedHazardsCount} Confirmed
+          </Text>
         </View>
 
         <View
@@ -244,7 +249,7 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
             <CheckCircle2 size={15} color={theme.teal} />
           </View>
           <Text style={[styles.metricValue, { color: theme.teal }]}>
-            {settings.confirmation_threshold || 3} Votes
+            {confirmationThreshold} Votes
           </Text>
           <Text style={[styles.metricSub, { color: theme.textMuted }]}>Peer validation trigger</Text>
         </View>
@@ -260,7 +265,7 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
             <Clock size={15} color="#FB923C" />
           </View>
           <Text style={[styles.metricValue, { color: '#FB923C' }]}>
-            {settings.freshness_hours || 48} Hours
+            {freshnessHours} Hours
           </Text>
           <Text style={[styles.metricSub, { color: theme.textMuted }]}>Incident retention period</Text>
         </View>
@@ -527,6 +532,25 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
 
           {loadingUsers ? (
             <ActivityIndicator size="small" color="#818CF8" style={{ marginVertical: 20 }} />
+          ) : users.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Users size={32} color="#818CF8" style={{ marginBottom: 6 }} />
+              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Users Found</Text>
+              <Text style={[styles.emptySub, { color: theme.textMuted }]}>
+                {!isAdmin
+                  ? 'Administrator credentials are required to inspect the platform user directory.'
+                  : 'No user accounts match the current query or filter.'}
+              </Text>
+              {!isAdmin && onOpenAuth && (
+                <TouchableOpacity
+                  style={[styles.primaryActionBtn, { backgroundColor: '#818CF8', marginTop: 10 }]}
+                  onPress={onOpenAuth}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.primaryActionText}>Sign In as Administrator</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ) : (
             users.map((u) => (
               <View
@@ -594,23 +618,62 @@ export const AdminDashboardNative: React.FC<AdminDashboardNativeProps> = ({
 
           {loadingAudit ? (
             <ActivityIndicator size="small" color="#818CF8" style={{ marginVertical: 20 }} />
+          ) : auditLogs.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <FileText size={32} color="#818CF8" style={{ marginBottom: 6 }} />
+              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Audit Logs Found</Text>
+              <Text style={[styles.emptySub, { color: theme.textMuted }]}>
+                {!isAdmin
+                  ? 'Administrator credentials are required to inspect the platform audit trail.'
+                  : 'No operational setting mutations or role changes recorded yet.'}
+              </Text>
+              {!isAdmin && onOpenAuth && (
+                <TouchableOpacity
+                  style={[styles.primaryActionBtn, { backgroundColor: '#818CF8', marginTop: 10 }]}
+                  onPress={onOpenAuth}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.primaryActionText}>Sign In as Administrator</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ) : (
-            auditLogs.map((log) => (
-              <View
-                key={log.id}
-                style={[styles.auditCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              >
-                <View style={styles.auditHeader}>
-                  <Text style={[styles.auditAction, { color: '#818CF8' }]}>{log.action}</Text>
-                  <Text style={[styles.auditTime, { color: theme.textMuted }]}>
-                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            auditLogs.map((log) => {
+              const actionName = log.action_type || log.action || 'AUDIT';
+              const actor = log.actor_username ? `@${log.actor_username}` : 'System';
+              const dateStr = log.created_at || log.timestamp;
+              let formattedTime = 'Recently';
+              if (dateStr) {
+                try {
+                  formattedTime = new Date(dateStr).toLocaleString([], {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  });
+                } catch {
+                  formattedTime = String(dateStr);
+                }
+              }
+
+              return (
+                <View
+                  key={log.id}
+                  style={[styles.auditCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                >
+                  <View style={styles.auditHeader}>
+                    <View style={styles.auditActionBadge}>
+                      <Text style={[styles.auditAction, { color: '#818CF8' }]}>{actionName}</Text>
+                      <Text style={[styles.auditActor, { color: theme.textPrimary }]}>By {actor}</Text>
+                    </View>
+                    <Text style={[styles.auditTime, { color: theme.textMuted }]}>
+                      {formattedTime}
+                    </Text>
+                  </View>
+                  <Text style={[styles.auditMessage, { color: theme.textSecondary }]}>
+                    {log.details || log.message || 'Administrative record logged'}
                   </Text>
                 </View>
-                <Text style={[styles.auditMessage, { color: theme.textSecondary }]}>
-                  {log.message || log.details || 'Administrative record logged'}
-                </Text>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
       )}
@@ -989,6 +1052,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  auditActionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  auditActor: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
   auditAction: {
     fontSize: 11,
     fontWeight: '800',
@@ -998,5 +1070,24 @@ const styles = StyleSheet.create({
   },
   auditMessage: {
     fontSize: 12,
+  },
+  emptyCard: {
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginVertical: 10,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  emptySub: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
+    paddingHorizontal: 12,
   },
 });
