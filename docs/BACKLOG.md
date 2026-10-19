@@ -20,14 +20,14 @@
 - [ ] Add PWA (Progressive Web App) manifest and service worker for offline shell caching.
 - [ ] Implement email verification workflow for accounts upon public launch.
 
-## Later — Google Gemini AI
-- [ ] Create a backend-only AI service adapter and feature flag (for example, `GEMINI_AI_ENABLED`).
-- [ ] Use the Google Gemini API to suggest a hazard category from a report description and optionally produce a concise, neutral summary.
-- [ ] Consider duplicate-report hints based on text plus time/location signals, but keep deterministic checks and user/moderator review in control.
-- [ ] Validate AI output against allowed categories and text limits; treat it as untrusted input.
-- [ ] Handle missing API keys, quota limits, timeouts, invalid output, and provider outages without breaking core reporting.
-- [ ] Document cost/quota assumptions and never promise a permanently free quota.
-- [ ] Do not send unnecessary personal data to the model, and do not allow AI alone to mark a report verified, true, resolved, or official.
+## Done — Google Gemini AI (Phase 2 Delivered)
+- [x] Create a backend-only AI service adapter (`GeminiService`) and feature flag (`GEMINI_AI_ENABLED`).
+- [x] Use Google Gemini API to suggest hazard categories (`flooding`, `pothole`, `blocked_road`, `fallen_tree`, `other`) and produce concise neutral summaries.
+- [x] Implement hybrid duplicate-report detector: deterministic Haversine distance ($\le 1\text{km}$) + time window ($\le 48\text{h}$) pre-filtering + Gemini semantic comparison.
+- [x] Validate AI output against allowed categories and text limits; treat user text and AI outputs as untrusted data.
+- [x] Handle missing API keys, quota limits, timeouts (10s), invalid output, and provider outages gracefully with controlled 503/504 responses without breaking core reporting.
+- [x] Deliver frontend AI assistant components: `AISuggestionCard`, "Suggest Category" pill, "Refine wording" drawer, and moderator incident summary & duplicate scanner.
+- [x] Enforce human-in-the-loop: AI alone never verifies, resolves, rejects, or publishes reports.
 
 ## Later — React Native mobile (Native Capabilities Phase)
 - [x] Create Expo React Native mobile container (`mobile/`) with WebView, brand tokens, and security boundaries.

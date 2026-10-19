@@ -19,6 +19,7 @@ import {
   Search,
   ArrowUpDown,
   Maximize2,
+  Sparkles,
 } from "lucide-react";
 import { AppHeader } from "../components/layout/AppHeader";
 import { CategoryBadge } from "../components/hazards/CategoryBadge";
@@ -29,6 +30,8 @@ import { EmptyState } from "../components/feedback/EmptyState";
 import { PaginationBar } from "../components/common/PaginationBar";
 import { ImageLightboxModal } from "../components/common/ImageLightboxModal";
 import { moderationService } from "../services/apiClient";
+import { aiService } from "../services/aiService";
+import { AISuggestionCard } from "../components/ai/AISuggestionCard";
 import { useAuth } from "../context/AuthContext";
 
 export function ModerationPage() {
@@ -72,6 +75,13 @@ export function ModerationPage() {
   // Platform-wide history state
   const [platformHistory, setPlatformHistory] = useState([]);
   const [loadingPlatformHistory, setLoadingPlatformHistory] = useState(false);
+
+  // AI Assistant states for moderator
+  const [aiSummary, setAiSummary] = useState(null);
+  const [loadingAiSummary, setLoadingAiSummary] = useState(false);
+  const [aiDuplicates, setAiDuplicates] = useState(null);
+  const [loadingAiDuplicates, setLoadingAiDuplicates] = useState(false);
+  const [aiModalNotice, setAiModalNotice] = useState(null);
 
   const fetchModerationData = useCallback(async () => {
     try {
@@ -141,7 +151,45 @@ export function ModerationPage() {
     setActionReason("");
     setActionError("");
     setActionSuccess("");
+    setAiSummary(null);
+    setAiDuplicates(null);
+    setAiModalNotice(null);
     setActionModalOpen(true);
+  };
+
+  const handleFetchAiSummary = async (reportId) => {
+    try {
+      setLoadingAiSummary(true);
+      setAiModalNotice(null);
+      const res = await aiService.summarizeReport(reportId);
+      setAiSummary(res);
+    } catch (err) {
+      const msg = err.response?.data?.error || "AI incident summarizer is temporarily unavailable.";
+      setAiModalNotice({ type: "error", message: msg });
+    } finally {
+      setLoadingAiSummary(false);
+    }
+  };
+
+  const handleFetchAiDuplicates = async (report) => {
+    try {
+      setLoadingAiDuplicates(true);
+      setAiModalNotice(null);
+      const res = await aiService.checkDuplicates({
+        latitude: report.latitude,
+        longitude: report.longitude,
+        description: report.description,
+        category: report.category,
+        radius_km: 1.0,
+        exclude_report_id: report.id,
+      });
+      setAiDuplicates(res);
+    } catch (err) {
+      const msg = err.response?.data?.error || "Duplicate scanner is temporarily unavailable.";
+      setAiModalNotice({ type: "error", message: msg });
+    } finally {
+      setLoadingAiDuplicates(false);
+    }
   };
 
   const handleSubmitAction = async (e) => {
@@ -714,7 +762,78 @@ export function ModerationPage() {
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 text-xs text-slate-600 dark:text-slate-300 space-y-1">
                 <div><strong>Hazard:</strong> {selectedReport.location_label || `#${selectedReport.id}`}</div>
                 <div><strong>Action:</strong> <span className="font-bold uppercase text-amber-600">{actionType}</span></div>
+                <div className="pt-1 text-[11px] text-slate-500 line-clamp-2"><strong>Report:</strong> "{selectedReport.description}"</div>
               </div>
+
+              {/* AI Assistance Tools */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleFetchAiSummary(selectedReport.id)}
+                  disabled={loadingAiSummary}
+                  className="flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 border border-teal-200 dark:border-teal-800 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                  title="Generate concise neutral incident summary"
+                >
+                  {loadingAiSummary ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3 text-[#087F8C] dark:text-teal-400" />
+                  )}
+                  <span>AI Summary</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleFetchAiDuplicates(selectedReport)}
+                  disabled={loadingAiDuplicates}
+                  className="flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 border border-amber-200 dark:border-amber-800 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                  title="Scan for matching duplicate reports within 1km"
+                >
+                  {loadingAiDuplicates ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                  )}
+                  <span>Scan Duplicates</span>
+                </button>
+              </div>
+
+              {aiSummary && (
+                <AISuggestionCard
+                  title={`Incident Summary (Urgency: ${aiSummary.urgency_level.toUpperCase()})`}
+                  subtitle={aiSummary.category_display}
+                  content={aiSummary.summary}
+                  onDismiss={() => setAiSummary(null)}
+                  disclaimer={aiSummary.disclaimer}
+                />
+              )}
+
+              {aiDuplicates && (
+                <AISuggestionCard
+                  title={aiDuplicates.is_possible_duplicate ? "Potential Duplicate Detected" : "Deduplication Clear"}
+                  subtitle={`${aiDuplicates.nearby_count} active reports nearby`}
+                  content={
+                    <div className="space-y-1.5 text-xs">
+                      <p className="font-semibold text-amber-800 dark:text-amber-300">{aiDuplicates.analysis}</p>
+                      {aiDuplicates.candidates.map((cand) => (
+                        <div key={cand.id} className="p-1.5 rounded bg-slate-50 dark:bg-slate-800 text-[11px] border border-slate-200 dark:border-slate-700 flex justify-between">
+                          <span>#{cand.id} {cand.category_display}</span>
+                          <span className="font-mono text-teal-600 dark:text-teal-400">{cand.distance_meters}m</span>
+                        </div>
+                      ))}
+                    </div>
+                  }
+                  onDismiss={() => setAiDuplicates(null)}
+                  disclaimer={aiDuplicates.disclaimer}
+                />
+              )}
+
+              {aiModalNotice && (
+                <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
+                  <span>{aiModalNotice.message}</span>
+                  <button type="button" onClick={() => setAiModalNotice(null)}>&times;</button>
+                </div>
+              )}
 
               {actionSuccess && (
                 <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 text-xs flex items-center gap-2">

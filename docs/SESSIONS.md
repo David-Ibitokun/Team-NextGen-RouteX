@@ -16,6 +16,36 @@
 
 ## Session log
 
+### 2026-10-19 — Google Gemini AI Integration (Phase 2 Roadmap Complete)
+- **Work completed:**
+  - **Backend AI Architecture (`apps.ai_assistant`):**
+    - Built dedicated Django app `apps.ai_assistant` with `services.py`, `serializers.py`, `views.py`, and `urls.py`.
+    - Created `GeminiService` calling Google Gemini v1beta REST API with JSON response enforcement (`responseMimeType: "application/json"`).
+    - Configured server-only environment variables in `backend/config/settings.py`: `GEMINI_AI_ENABLED`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `ROUTEX_AI_MAX_INPUT_CHARS`, `ROUTEX_AI_TIMEOUT_SECONDS`.
+    - Implemented 4 high-value AI endpoints:
+      - `POST /api/v1/ai/suggest-category/`: Classifies draft text into 5 RouteX categories with confidence and rationale.
+      - `POST /api/v1/ai/improve-description/`: Polishes grammar and clarity without adding unobserved facts.
+      - `POST /api/v1/ai/summarise-report/`: Produces objective 1-2 sentence neutral incident summaries from verified records.
+      - `POST /api/v1/ai/check-duplicates/`: Hybrid spatial (Haversine $\le 1\text{km}$) + temporal window ($\le 48\text{h}$) + Gemini semantic text comparison. Short-circuits to 0 API calls when no candidates are nearby.
+    - Updated `api_root` discovery in `backend/config/urls.py` and OpenAPI documentation tag `"ai"`.
+  - **Frontend UI & Service Layer:**
+    - Created `frontend/src/services/aiService.js` with CSRF cookie handling.
+    - Built accessible `frontend/src/components/ai/AISuggestionCard.jsx` with dark/light theme support and explicit disclaimers.
+    - Integrated "Suggest Category" pill, "Refine wording" drawer, and "Scan Nearby Duplicates" scanner into `ReportHazardForm.jsx`.
+    - Integrated "AI Summary" and "Scan Duplicates" tools into `ModerationPage.jsx` Action Modal.
+  - **Verification & Testing:**
+    - Authored 22 new unit and API tests in `apps/ai_assistant/tests/`.
+    - Ran backend test suite: **56/56 passing in 1.8s** (100% success rate).
+    - Validated OpenAPI 3.0 schema generation with 0 errors (`spectacular --validate`).
+    - Verified frontend production build: `vite build` completed cleanly in 29.8s.
+    - Verified mobile test suite: 15/15 unit and policy tests passing.
+- **Decisions made:**
+  - Reused existing session authentication and CSRF token infrastructure for all AI endpoints.
+  - AI is strictly advisory (human-in-the-loop); no automatic database mutations or status changes.
+  - Duplicate detection is pre-filtered geospatially to achieve zero API quota expenditure when no candidates exist nearby.
+- **Next recommended tasks:**
+  - Configure production `GEMINI_API_KEY` in deployment environment when live AI assistance is desired.
+
 ### 2026-10-17 (Part 7) — Expo SDK 57 Downgrade for Google Play Store Expo Go Compatibility
 - **Work completed:**
   - **Expo SDK Downgrade (SDK 58 -> SDK 57):**

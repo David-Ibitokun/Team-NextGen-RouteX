@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "apps.accounts.apps.AccountsConfig",
     "apps.hazards.apps.HazardsConfig",
     "apps.moderation.apps.ModerationConfig",
+    "apps.ai_assistant.apps.AiAssistantConfig",
 ]
 
 MIDDLEWARE = [
@@ -222,6 +223,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "auth", "description": "Session authentication, registration, user profile, and personal citizen dashboard."},
         {"name": "moderation", "description": "Moderator queue, report inspection, status transitions with mandatory rationale, and decision history."},
         {"name": "admin", "description": "Platform administration, user & role management, operational settings, and system audit trail."},
+        {"name": "ai", "description": "Google Gemini-powered AI assistants for category suggestion, wording improvement, report summarization, and duplicate detection."},
         {"name": "system", "description": "System health and discovery endpoints."},
     ],
 }
@@ -263,9 +265,12 @@ if DEBUG:
     # Ensure all entries are unique
     CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
-# Google Gemini AI Feature Flag (Backend service, optional future phase)
+# Google Gemini AI Feature Settings (Backend-only, strictly optional)
 GEMINI_AI_ENABLED = os.environ.get("GEMINI_AI_ENABLED", "False").lower() in ("true", "1", "yes")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+ROUTEX_AI_MAX_INPUT_CHARS = int(os.environ.get("ROUTEX_AI_MAX_INPUT_CHARS", "3000"))
+ROUTEX_AI_TIMEOUT_SECONDS = int(os.environ.get("ROUTEX_AI_TIMEOUT_SECONDS", "10"))
 
 # Email API Configuration (Imported from .env)
 EMAIL_BACKEND = (

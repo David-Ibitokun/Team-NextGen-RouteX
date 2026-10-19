@@ -17,6 +17,8 @@ import { RouteXLogo } from "../common/RouteXLogo";
 import { HAZARD_CATEGORIES } from "../../utils/hazardConstants";
 import { LocationPickerMap } from "../map/LocationPickerMap";
 import { hazardService } from "../../services/apiClient";
+import { aiService } from "../../services/aiService";
+import { AISuggestionCard } from "../ai/AISuggestionCard";
 import { convertToWebP, formatFileSize } from "../../utils/imageOptimizer";
 
 const CATEGORY_ICONS = {
@@ -44,6 +46,13 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [optimizingPhoto, setOptimizingPhoto] = useState(false);
   const [photoStats, setPhotoStats] = useState(null);
+
+  // AI Assistant States
+  const [aiLoading, setAiLoading] = useState(null); // 'category' | 'description' | 'duplicates' | null
+  const [categorySuggestion, setCategorySuggestion] = useState(null);
+  const [descriptionSuggestion, setDescriptionSuggestion] = useState(null);
+  const [duplicateCheckResult, setDuplicateCheckResult] = useState(null);
+  const [aiNotice, setAiNotice] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
@@ -132,6 +141,82 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
     setPhoto(null);
     setPhotoPreview(null);
     setPhotoStats(null);
+  };
+
+  const handleSuggestCategory = async () => {
+    if (!description.trim() || description.trim().length < 5) {
+      setErrors((prev) => ({
+        ...prev,
+        description: "Please enter at least 5 characters in description for AI to analyze.",
+      }));
+      return;
+    }
+    setAiLoading("category");
+    setAiNotice(null);
+    try {
+      const res = await aiService.suggestCategory(description, category);
+      setCategorySuggestion(res);
+    } catch (err) {
+      const msg = err.response?.data?.error || "AI category suggestion is temporarily unavailable.";
+      setAiNotice({ type: "error", message: msg });
+    } finally {
+      setAiLoading(null);
+    }
+  };
+
+  const handleImproveDescription = async () => {
+    if (!description.trim() || description.trim().length < 5) {
+      setErrors((prev) => ({
+        ...prev,
+        description: "Please enter at least 5 characters in description to refine.",
+      }));
+      return;
+    }
+    setAiLoading("description");
+    setAiNotice(null);
+    try {
+      const res = await aiService.improveDescription(description);
+      setDescriptionSuggestion(res);
+    } catch (err) {
+      const msg = err.response?.data?.error || "AI wording helper is temporarily unavailable.";
+      setAiNotice({ type: "error", message: msg });
+    } finally {
+      setAiLoading(null);
+    }
+  };
+
+  const handleCheckDuplicates = async () => {
+    if (!latitude || !longitude) {
+      setErrors((prev) => ({
+        ...prev,
+        coordinates: "Please pick a location on the map first.",
+      }));
+      return;
+    }
+    if (!description.trim() || description.trim().length < 5) {
+      setErrors((prev) => ({
+        ...prev,
+        description: "Please enter a description to compare against existing hazards.",
+      }));
+      return;
+    }
+    setAiLoading("duplicates");
+    setAiNotice(null);
+    try {
+      const res = await aiService.checkDuplicates({
+        latitude,
+        longitude,
+        description,
+        category,
+        radius_km: 1.0,
+      });
+      setDuplicateCheckResult(res);
+    } catch (err) {
+      const msg = err.response?.data?.error || "Duplicate scanner is temporarily unavailable.";
+      setAiNotice({ type: "error", message: msg });
+    } finally {
+      setAiLoading(null);
+    }
   };
 
   const validate = () => {
@@ -265,9 +350,42 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
 
         {/* Category Selection */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-[#142B3B] dark:text-slate-200">
-            Hazard category <span className="text-[#D64545]">*</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold text-[#142B3B] dark:text-slate-200">
+              Hazard category <span className="text-[#D64545]">*</span>
+            </label>
+            <button
+              type="button"
+              onClick={handleSuggestCategory}
+              disabled={aiLoading === "category"}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[#087F8C] dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 dark:hover:bg-teal-900/60 rounded-lg border border-teal-200/80 dark:border-teal-800 transition-colors disabled:opacity-50"
+              title="Analyze description to suggest hazard category"
+            >
+              {aiLoading === "category" ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Sparkles className="w-3 h-3 text-[#087F8C] dark:text-teal-400" />
+              )}
+              <span>Suggest Category</span>
+            </button>
+          </div>
+
+          {categorySuggestion && (
+            <AISuggestionCard
+              title={`Suggested: ${categorySuggestion.category_display}`}
+              subtitle={`${Math.round(categorySuggestion.confidence * 100)}% match confidence`}
+              reason={categorySuggestion.reason}
+              applyLabel={`Switch to ${categorySuggestion.category_display}`}
+              onApply={() => {
+                setCategory(categorySuggestion.suggested_category);
+                setCategorySuggestion(null);
+                setErrors((prev) => ({ ...prev, category: null }));
+              }}
+              onDismiss={() => setCategorySuggestion(null)}
+              disclaimer={categorySuggestion.disclaimer}
+            />
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {HAZARD_CATEGORIES.map((cat) => {
               const isSelected = category === cat.id;
@@ -439,9 +557,25 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
             >
               Description <span className="text-[#D64545]">*</span>
             </label>
-            <span className="text-[10px] text-[#667784] dark:text-slate-400 font-mono">
-              {description.length}/1000
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleImproveDescription}
+                disabled={aiLoading === "description"}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-[#087F8C] dark:text-teal-400 hover:underline disabled:opacity-50"
+                title="Improve grammar and readability with Gemini AI"
+              >
+                {aiLoading === "description" ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                <span>Refine wording</span>
+              </button>
+              <span className="text-[10px] text-[#667784] dark:text-slate-400 font-mono">
+                {description.length}/1000
+              </span>
+            </div>
           </div>
           <textarea
             id="hazardDesc"
@@ -459,6 +593,21 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
           />
           {errors.description && (
             <p className="text-xs text-[#D64545]">{errors.description}</p>
+          )}
+
+          {descriptionSuggestion && (
+            <AISuggestionCard
+              title="Refined Description"
+              subtitle={descriptionSuggestion.changes_made}
+              content={descriptionSuggestion.suggested_description}
+              applyLabel="Use Refined Text"
+              onApply={() => {
+                setDescription(descriptionSuggestion.suggested_description);
+                setDescriptionSuggestion(null);
+              }}
+              onDismiss={() => setDescriptionSuggestion(null)}
+              disclaimer={descriptionSuggestion.disclaimer}
+            />
           )}
         </div>
 
@@ -553,6 +702,89 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
 
           {errors.photo && (
             <p className="text-xs text-[#D64545]">{errors.photo}</p>
+          )}
+        </div>
+
+        {/* Community Deduplication Check */}
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#142B3B] dark:text-slate-200 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#087F8C] dark:text-teal-400" />
+              <span>Smart Deduplication</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleCheckDuplicates}
+              disabled={aiLoading === "duplicates"}
+              className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold text-[#087F8C] dark:text-teal-400 bg-teal-50/80 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/50 rounded-lg border border-teal-200/80 dark:border-teal-800 transition-colors disabled:opacity-50"
+            >
+              {aiLoading === "duplicates" ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Sparkles className="w-3 h-3" />
+              )}
+              <span>Scan Nearby Duplicates</span>
+            </button>
+          </div>
+
+          {duplicateCheckResult && (
+            <AISuggestionCard
+              title={
+                duplicateCheckResult.is_possible_duplicate
+                  ? "Potential Duplicate Detected"
+                  : "No Duplicates Found"
+              }
+              subtitle={`${duplicateCheckResult.nearby_count} active reports within 1km`}
+              content={
+                duplicateCheckResult.candidates.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="font-semibold text-amber-800 dark:text-amber-300 text-xs">
+                      {duplicateCheckResult.analysis}
+                    </p>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {duplicateCheckResult.candidates.map((cand) => (
+                        <div
+                          key={cand.id}
+                          className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] space-y-0.5"
+                        >
+                          <div className="flex justify-between items-center font-bold text-[#142B3B] dark:text-white">
+                            <span>#{cand.id} {cand.category_display}</span>
+                            <span className="text-teal-600 dark:text-teal-400 font-mono text-[10px]">
+                              {cand.distance_meters}m away
+                            </span>
+                          </div>
+                          <p className="text-[#667784] dark:text-slate-400 line-clamp-1">
+                            {cand.description}
+                          </p>
+                          <p className="text-amber-700 dark:text-amber-400 text-[10px] italic">
+                            {cand.match_rationale}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-emerald-700 dark:text-emerald-400 text-xs">
+                    {duplicateCheckResult.analysis}
+                  </p>
+                )
+              }
+              onDismiss={() => setDuplicateCheckResult(null)}
+              disclaimer={duplicateCheckResult.disclaimer}
+            />
+          )}
+
+          {aiNotice && (
+            <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
+              <span>{aiNotice.message}</span>
+              <button
+                type="button"
+                onClick={() => setAiNotice(null)}
+                className="text-amber-600 hover:text-amber-900 ml-2 font-bold text-sm"
+              >
+                &times;
+              </button>
+            </div>
           )}
         </div>
       </div>
