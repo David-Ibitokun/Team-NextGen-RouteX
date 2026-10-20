@@ -10,10 +10,12 @@ import {
   Alert,
   Modal,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   useWindowDimensions,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Shield,
   AlertTriangle,
@@ -63,9 +65,31 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
   onSelectHazard,
   onOpenAuth,
 }) => {
+  const insets = useSafeAreaInsets();
   const { isDark, theme } = useTheme();
   const { user, isModerator, isAdmin } = useAuth();
   const { width: windowWidth } = useWindowDimensions();
+
+  const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
+
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
   const [reports, setReports] = useState<any[]>([]);
@@ -190,7 +214,8 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
       const res = await aiService.summarizeReport(reportId);
       setAiSummary(res);
     } catch (err: any) {
-      const msg = err?.data?.error || err?.message || 'AI incident summarizer is temporarily unavailable.';
+      const isAuth = err?.status === 401 || err?.status === 403 || err?.data?.code === 'not_authenticated' || err?.data?.detail?.toLowerCase().includes('not authenticated') || err?.message?.toLowerCase().includes('not authenticated');
+      const msg = isAuth ? "AI incident summarizer won't work because you are not authenticated. Please sign in to your RouteX account." : (err?.data?.error || err?.data?.detail || err?.message || 'AI incident summarizer is temporarily unavailable.');
       setAiModalNotice(msg);
     } finally {
       setLoadingAiSummary(false);
@@ -211,7 +236,8 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
       });
       setAiDuplicates(res);
     } catch (err: any) {
-      const msg = err?.data?.error || err?.message || 'Duplicate scanner is temporarily unavailable.';
+      const isAuth = err?.status === 401 || err?.status === 403 || err?.data?.code === 'not_authenticated' || err?.data?.detail?.toLowerCase().includes('not authenticated') || err?.message?.toLowerCase().includes('not authenticated');
+      const msg = isAuth ? "Duplicate scanner won't work because you are not authenticated. Please sign in to your RouteX account." : (err?.data?.error || err?.data?.detail || err?.message || 'Duplicate scanner is temporarily unavailable.');
       setAiModalNotice(msg);
     } finally {
       setLoadingAiDuplicates(false);
@@ -234,7 +260,8 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
       const res = await aiService.summarizeReport(reportId);
       setCardAiSummaries((prev) => ({ ...prev, [reportId]: res }));
     } catch (err: any) {
-      Alert.alert('AI Summarizer', err?.data?.error || err?.message || 'AI incident summarizer is temporarily unavailable.');
+      const isAuth = err?.status === 401 || err?.status === 403 || err?.data?.code === 'not_authenticated' || err?.data?.detail?.toLowerCase().includes('not authenticated') || err?.message?.toLowerCase().includes('not authenticated');
+      Alert.alert('AI Summarizer', isAuth ? "AI summarizer won't work because you are not authenticated. Please sign in to your RouteX account." : (err?.data?.error || err?.data?.detail || err?.message || 'AI incident summarizer is temporarily unavailable.'));
     } finally {
       setLoadingCardSummary(null);
     }
@@ -1030,13 +1057,29 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
         animationType="slide"
         onRequestClose={() => setActionModalOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.modalOverlay,
+            {
+              paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0,
+            },
+          ]}
+        >
           <KeyboardAvoidingView
             style={styles.keyboardAvoider}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
           >
-            <View style={[styles.actionModalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View
+              style={[
+                styles.actionModalCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  paddingBottom: keyboardHeight > 0 ? 8 : bottomSafePadding,
+                },
+              ]}
+            >
               <View style={[styles.actionModalHeader, { borderBottomColor: theme.borderSubtle }]}>
                 <View style={styles.actionTitleGroup}>
                   <Shield size={18} color={theme.teal} />

@@ -32,6 +32,7 @@ export function MapPage() {
   // Geolocation & Near Me State
   const [userLocation, setUserLocation] = useState(null);
   const [nearMeActive, setNearMeActive] = useState(false);
+  const [nearMeRadiusKm, setNearMeRadiusKm] = useState(10);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState(null);
 
@@ -105,7 +106,7 @@ export function MapPage() {
       if (nearMeActive && userLocation) {
         params.lat = userLocation.lat;
         params.lng = userLocation.lng;
-        params.radius_km = 10;
+        params.radius_km = nearMeRadiusKm;
       }
 
       const response = await hazardService.getHazards(params);
@@ -163,7 +164,7 @@ export function MapPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, selectedStatus, searchParams, nearMeActive, userLocation]);
+  }, [selectedCategory, selectedStatus, searchParams, nearMeActive, userLocation, nearMeRadiusKm]);
 
   useEffect(() => {
     fetchHazards();
@@ -208,6 +209,8 @@ export function MapPage() {
             nearMeActive={nearMeActive}
             onToggleNearMe={handleToggleNearMe}
             locating={locating}
+            radiusKm={nearMeRadiusKm}
+            onSelectRadius={setNearMeRadiusKm}
           />
 
           {locationError && (
@@ -233,10 +236,10 @@ export function MapPage() {
 
             {!loading && !error && hazards.length === 0 && (
               <EmptyState
-                title={nearMeActive ? "No Hazards Within 10 km" : "No reports match these filters"}
+                title={nearMeActive ? `No Hazards Within ${nearMeRadiusKm} km` : "No reports match these filters"}
                 message={
                   nearMeActive
-                    ? "Great news! No road hazards have been reported within 10 km of your current location."
+                    ? `Great news! No road hazards have been reported within ${nearMeRadiusKm} km of your current location.`
                     : "No reports match these filters. Try another filter or report a hazard you see."
                 }
                 actionLabel={nearMeActive ? "View All Hazards" : "Report a hazard"}
@@ -272,7 +275,7 @@ export function MapPage() {
             selectedHazard={selectedHazard}
             onSelectHazard={(h) => setSelectedHazard(h)}
             userLocation={userLocation}
-            radiusKm={10}
+            radiusKm={nearMeRadiusKm}
           />
 
           {/* Floating Details Slide-over for Selected Report */}

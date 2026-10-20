@@ -31,6 +31,7 @@ import {
   X,
   MapPin,
   Loader2,
+  LogIn,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../theme/ThemeContext';
@@ -141,7 +142,29 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
     setAiNotice(null);
   };
 
+  const checkAuthForAi = (featureName: string): boolean => {
+    if (!isAuthenticated) {
+      const authMessage = `AI ${featureName} won't work because you are not authenticated. Sign in to your RouteX account to use AI assistance.`;
+      setAiNotice(authMessage);
+      if (onOpenAuth) {
+        Alert.alert(
+          'Sign In Required for AI',
+          `AI ${featureName} won't work because you are not authenticated.\n\nRouteX AI features require an authenticated account to prevent automated abuse and manage query limits. Would you like to sign in now?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign In', onPress: () => onOpenAuth('login') },
+          ]
+        );
+      }
+      return false;
+    }
+    return true;
+  };
+
   const handleSuggestCategory = async () => {
+    if (!checkAuthForAi('category suggestion')) {
+      return;
+    }
     if (!description.trim() || description.trim().length < 5) {
       setServerError('Please enter at least 5 characters in description for AI to analyze.');
       return;
@@ -152,14 +175,37 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
       const res = await aiService.suggestCategory(description, category);
       setCategorySuggestion(res);
     } catch (err: any) {
-      const msg = err?.data?.error || err?.message || 'AI category suggestion is temporarily unavailable.';
+      const isAuthErr =
+        err?.status === 401 ||
+        err?.status === 403 ||
+        err?.data?.code === 'not_authenticated' ||
+        err?.data?.detail?.toLowerCase().includes('not authenticated') ||
+        err?.message?.toLowerCase().includes('not authenticated') ||
+        err?.data?.detail?.toLowerCase().includes('credentials');
+
+      const msg = isAuthErr
+        ? "AI category suggestion won't work because you are not authenticated. Please sign in to use RouteX AI assistance."
+        : (err?.data?.error || err?.data?.detail || err?.message || 'AI category suggestion is temporarily unavailable.');
       setAiNotice(msg);
+      if (isAuthErr && onOpenAuth) {
+        Alert.alert(
+          'Sign In Required for AI',
+          "AI category suggestion won't work because you are not authenticated. Would you like to sign in now?",
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign In', onPress: () => onOpenAuth('login') },
+          ]
+        );
+      }
     } finally {
       setAiLoading(null);
     }
   };
 
   const handleImproveDescription = async () => {
+    if (!checkAuthForAi('wording refinement')) {
+      return;
+    }
     if (!description.trim() || description.trim().length < 5) {
       setServerError('Please enter at least 5 characters in description to refine.');
       return;
@@ -170,14 +216,37 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
       const res = await aiService.improveDescription(description);
       setDescriptionSuggestion(res);
     } catch (err: any) {
-      const msg = err?.data?.error || err?.message || 'AI wording helper is temporarily unavailable.';
+      const isAuthErr =
+        err?.status === 401 ||
+        err?.status === 403 ||
+        err?.data?.code === 'not_authenticated' ||
+        err?.data?.detail?.toLowerCase().includes('not authenticated') ||
+        err?.message?.toLowerCase().includes('not authenticated') ||
+        err?.data?.detail?.toLowerCase().includes('credentials');
+
+      const msg = isAuthErr
+        ? "AI wording refinement won't work because you are not authenticated. Please sign in to use RouteX AI assistance."
+        : (err?.data?.error || err?.data?.detail || err?.message || 'AI wording helper is temporarily unavailable.');
       setAiNotice(msg);
+      if (isAuthErr && onOpenAuth) {
+        Alert.alert(
+          'Sign In Required for AI',
+          "AI wording refinement won't work because you are not authenticated. Would you like to sign in now?",
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign In', onPress: () => onOpenAuth('login') },
+          ]
+        );
+      }
     } finally {
       setAiLoading(null);
     }
   };
 
   const handleCheckDuplicates = async () => {
+    if (!checkAuthForAi('duplicate scanning')) {
+      return;
+    }
     if (!latitude || !longitude) {
       setServerError('Please pick a location on the map first.');
       return;
@@ -198,8 +267,28 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
       });
       setDuplicateCheckResult(res);
     } catch (err: any) {
-      const msg = err?.data?.error || err?.message || 'Duplicate scanner is temporarily unavailable.';
+      const isAuthErr =
+        err?.status === 401 ||
+        err?.status === 403 ||
+        err?.data?.code === 'not_authenticated' ||
+        err?.data?.detail?.toLowerCase().includes('not authenticated') ||
+        err?.message?.toLowerCase().includes('not authenticated') ||
+        err?.data?.detail?.toLowerCase().includes('credentials');
+
+      const msg = isAuthErr
+        ? "AI duplicate scanner won't work because you are not authenticated. Please sign in to use RouteX AI assistance."
+        : (err?.data?.error || err?.data?.detail || err?.message || 'Duplicate scanner is temporarily unavailable.');
       setAiNotice(msg);
+      if (isAuthErr && onOpenAuth) {
+        Alert.alert(
+          'Sign In Required for AI',
+          "AI duplicate scanning won't work because you are not authenticated. Would you like to sign in now?",
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign In', onPress: () => onOpenAuth('login') },
+          ]
+        );
+      }
     } finally {
       setAiLoading(null);
     }
@@ -644,6 +733,11 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                           onChangeText={setLatInput}
                           placeholder="e.g. 6.4531"
                           placeholderTextColor={theme.textMuted}
+                          onFocus={() => {
+                            setTimeout(() => {
+                              scrollViewRef.current?.scrollTo({ y: 220, animated: true });
+                            }, 120);
+                          }}
                         />
                       </View>
 
@@ -665,6 +759,11 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                           onChangeText={setLngInput}
                           placeholder="e.g. 3.3958"
                           placeholderTextColor={theme.textMuted}
+                          onFocus={() => {
+                            setTimeout(() => {
+                              scrollViewRef.current?.scrollTo({ y: 220, animated: true });
+                            }, 120);
+                          }}
                         />
                       </View>
 
@@ -728,7 +827,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                 onFocus={() => {
                   setIsMapCollapsed(true);
                   setTimeout(() => {
-                    scrollViewRef.current?.scrollTo({ y: 80, animated: true });
+                    scrollViewRef.current?.scrollTo({ y: 320, animated: true });
                   }, 120);
                 }}
               />
@@ -780,7 +879,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                 onFocus={() => {
                   setIsMapCollapsed(true);
                   setTimeout(() => {
-                    scrollViewRef.current?.scrollTo({ y: 150, animated: true });
+                    scrollViewRef.current?.scrollTo({ y: 460, animated: true });
                   }, 120);
                 }}
               />
@@ -990,12 +1089,26 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                     },
                   ]}
                 >
-                  <AlertCircle size={13} color="#D97706" />
-                  <Text style={[styles.aiNoticeText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                    {aiNotice}
-                  </Text>
-                  <TouchableOpacity onPress={() => setAiNotice(null)} style={{ padding: 2 }}>
-                    <X size={12} color={isDark ? '#FCD34D' : '#92400E'} />
+                  <AlertCircle size={15} color="#D97706" style={{ marginTop: 2 }} />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={[styles.aiNoticeText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
+                      {aiNotice}
+                    </Text>
+                    {!isAuthenticated && onOpenAuth && (
+                      <TouchableOpacity
+                        onPress={() => onOpenAuth('login')}
+                        style={styles.aiNoticeSignInBtn}
+                        activeOpacity={0.7}
+                      >
+                        <LogIn size={12} color={isDark ? '#FCD34D' : '#92400E'} />
+                        <Text style={[styles.aiNoticeSignInText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
+                          Sign In to Use RouteX AI
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <TouchableOpacity onPress={() => setAiNotice(null)} style={{ padding: 4 }}>
+                    <X size={13} color={isDark ? '#FCD34D' : '#92400E'} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -1524,5 +1637,21 @@ const styles = StyleSheet.create({
   aiNoticeText: {
     fontSize: 11,
     flex: 1,
+    lineHeight: 16,
+  },
+  aiNoticeSignInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(217, 119, 6, 0.18)',
+  },
+  aiNoticeSignInText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

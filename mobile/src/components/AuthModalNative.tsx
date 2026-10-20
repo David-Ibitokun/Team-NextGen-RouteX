@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,11 @@ import {
   Modal,
   Alert,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   X,
   LogIn,
@@ -44,8 +47,38 @@ export const AuthModalNative: React.FC<AuthModalNativeProps> = ({
   onClose,
   initialMode = 'login',
 }) => {
+  const insets = useSafeAreaInsets();
   const { isDark, theme } = useTheme();
   const { user, isAuthenticated, login, register, logout } = useAuth();
+  const { height: windowHeight } = useWindowDimensions();
+
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
+
+  const modalMaxHeight = useMemo(() => {
+    if (keyboardHeight > 0) {
+      return Math.max(windowHeight - keyboardHeight - (Platform.OS === 'android' ? 44 : 20), 240);
+    }
+    return Math.min(windowHeight * 0.90, 750);
+  }, [windowHeight, keyboardHeight]);
 
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode);
 
@@ -204,17 +237,36 @@ export const AuthModalNative: React.FC<AuthModalNativeProps> = ({
       statusBarTranslucent={false}
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        style={styles.modalOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      <View
+        style={[
+          styles.modalOverlay,
+          {
+            paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0,
+          },
+        ]}
       >
         <TouchableOpacity
           style={styles.backdropPressable}
           activeOpacity={1}
-          onPress={handleClose}
+          onPress={() => {
+            if (keyboardHeight > 0) {
+              Keyboard.dismiss();
+            } else {
+              handleClose();
+            }
+          }}
         />
-        <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.modalCard,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              maxHeight: modalMaxHeight,
+              paddingBottom: keyboardHeight > 0 ? 8 : bottomSafePadding,
+            },
+          ]}
+        >
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: theme.borderSubtle }]}>
             <View style={styles.headerLeft}>
@@ -296,6 +348,7 @@ export const AuthModalNative: React.FC<AuthModalNativeProps> = ({
             <ScrollView
               contentContainerStyle={styles.formContent}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
             >
               {/* Tab Selector (Sign In vs Register) when not in forgot mode */}
@@ -693,7 +746,7 @@ export const AuthModalNative: React.FC<AuthModalNativeProps> = ({
             </ScrollView>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
@@ -748,7 +801,7 @@ const styles = StyleSheet.create({
   formContent: {
     padding: 16,
     gap: 14,
-    paddingBottom: 24,
+    paddingBottom: 16,
   },
   tabSelector: {
     flexDirection: 'row',

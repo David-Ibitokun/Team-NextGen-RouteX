@@ -10,10 +10,12 @@ import {
   Alert,
   Modal,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   useWindowDimensions,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
   ShieldCheck,
@@ -60,9 +62,31 @@ export const DashboardScreenNative: React.FC<DashboardScreenNativeProps> = ({
   onOpenMap,
   onOpenAuth,
 }) => {
+  const insets = useSafeAreaInsets();
   const { isDark, theme } = useTheme();
   const { user, isAuthenticated, isAdmin, isModerator, logout, refreshMe } = useAuth();
   const { width: windowWidth } = useWindowDimensions();
+
+  const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
+
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const [activeTab, setActiveTab] = useState<DashboardTab>('reports');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -1184,13 +1208,29 @@ export const DashboardScreenNative: React.FC<DashboardScreenNativeProps> = ({
         animationType="slide"
         onRequestClose={() => setActionModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.modalOverlay,
+            {
+              paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0,
+            },
+          ]}
+        >
           <KeyboardAvoidingView
             style={styles.keyboardAvoider}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
           >
-            <View style={[styles.actionModalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View
+              style={[
+                styles.actionModalCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  paddingBottom: keyboardHeight > 0 ? 8 : bottomSafePadding,
+                },
+              ]}
+            >
               {/* Header */}
               <View style={[styles.actionModalHeader, { borderBottomColor: theme.borderSubtle }]}>
                 <View style={styles.actionModalTitleRow}>

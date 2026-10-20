@@ -54,6 +54,7 @@ function RouteXNativeMain() {
   // Near Me & Geolocation State
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [nearMeActive, setNearMeActive] = useState(false);
+  const [nearMeRadiusKm, setNearMeRadiusKm] = useState<number>(10);
   const [locating, setLocating] = useState(false);
 
   // Modals
@@ -89,7 +90,7 @@ function RouteXNativeMain() {
         setLocating(false);
         Alert.alert(
           'Location Permission Required',
-          'RouteX needs access to your location to find road hazards within 10 km. Please grant location permission in your device settings.'
+          `RouteX needs access to your location to find road hazards within ${nearMeRadiusKm} km. Please grant location permission in your device settings.`
         );
         return;
       }
@@ -121,7 +122,7 @@ function RouteXNativeMain() {
         status: selectedStatus,
         lat: nearMeActive && userLocation ? userLocation.lat : undefined,
         lng: nearMeActive && userLocation ? userLocation.lng : undefined,
-        radius_km: nearMeActive ? 10 : undefined,
+        radius_km: nearMeActive ? nearMeRadiusKm : undefined,
       });
       setHazards(items);
     } catch {
@@ -130,7 +131,7 @@ function RouteXNativeMain() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCategory, selectedStatus, nearMeActive, userLocation]);
+  }, [selectedCategory, selectedStatus, nearMeActive, userLocation, nearMeRadiusKm]);
 
   useEffect(() => {
     let isMounted = true;
@@ -140,7 +141,7 @@ function RouteXNativeMain() {
       status: selectedStatus,
       lat: nearMeActive && userLocation ? userLocation.lat : undefined,
       lng: nearMeActive && userLocation ? userLocation.lng : undefined,
-      radius_km: nearMeActive ? 10 : undefined,
+      radius_km: nearMeActive ? nearMeRadiusKm : undefined,
     })
       .then((items) => {
         if (isMounted) {
@@ -157,7 +158,7 @@ function RouteXNativeMain() {
     return () => {
       isMounted = false;
     };
-  }, [selectedCategory, selectedStatus, nearMeActive, userLocation]);
+  }, [selectedCategory, selectedStatus, nearMeActive, userLocation, nearMeRadiusKm]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -311,7 +312,7 @@ function RouteXNativeMain() {
           <NativeMapScreen
             hazards={hazards}
             userLocation={userLocation}
-            radiusKm={10}
+            radiusKm={nearMeRadiusKm}
             selectedHazard={selectedHazardToView}
             onSelectHazard={(hazard) => setSelectedHazardToView(hazard)}
             onClearSelectedHazard={() => setSelectedHazardToView(null)}
@@ -416,6 +417,8 @@ function RouteXNativeMain() {
               nearMeActive={nearMeActive}
               onToggleNearMe={handleToggleNearMe}
               locating={locating}
+              radiusKm={nearMeRadiusKm}
+              onSelectRadius={setNearMeRadiusKm}
             />
 
             {/* Hazard Feed */}
@@ -448,7 +451,7 @@ function RouteXNativeMain() {
                     </Text>
                     <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
                       {nearMeActive
-                        ? 'No hazards reported within 10 km of your current location. Route is clear!'
+                        ? `No hazards reported within ${nearMeRadiusKm} km of your current location. Route is clear!`
                         : selectedCategory !== 'all'
                         ? 'No reports match the selected filters.'
                         : 'Great news! All monitored routes are currently clear.'}

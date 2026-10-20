@@ -28,6 +28,7 @@ class AiAssistantViewsTestCase(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("not authenticated", response.json().get("detail", ""))
 
     @override_settings(GEMINI_AI_ENABLED=False)
     def test_disabled_ai_returns_503(self):

@@ -2,6 +2,8 @@ import React from "react";
 import { Filter, Layers, Navigation, Loader2, X } from "lucide-react";
 import { HAZARD_CATEGORIES, HAZARD_STATUSES } from "../../utils/hazardConstants";
 
+export const RADIUS_OPTIONS = [2, 5, 10, 25, 50];
+
 export function HazardFilters({
   selectedCategory,
   onSelectCategory,
@@ -11,6 +13,8 @@ export function HazardFilters({
   nearMeActive = false,
   onToggleNearMe,
   locating = false,
+  radiusKm = 10,
+  onSelectRadius,
 }) {
   return (
     <div className="bg-white dark:bg-[#142533] border-b border-[#DCE4E8] dark:border-slate-800 p-3 space-y-2.5 transition-colors">
@@ -26,14 +30,14 @@ export function HazardFilters({
                 ? "bg-[#087F8C] text-white ring-2 ring-[#087F8C]/30"
                 : "bg-teal-50 dark:bg-teal-950/40 text-[#087F8C] dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/40"
             }`}
-            title={nearMeActive ? "Hazards within 10 km (Click to disable)" : "Show hazards within 10 km of my location"}
+            title={nearMeActive ? `Hazards within ${radiusKm} km (Click to disable)` : `Show hazards within ${radiusKm} km of my location`}
           >
             {locating ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <Navigation className={`w-3.5 h-3.5 ${nearMeActive ? "fill-white" : ""}`} />
             )}
-            <span>{nearMeActive ? "Near Me (10 km)" : "Near Me"}</span>
+            <span>{nearMeActive ? `Near Me (${radiusKm} km)` : "Near Me"}</span>
             {nearMeActive && <X className="w-3 h-3 ml-0.5 opacity-80 hover:opacity-100" />}
           </button>
         )}
@@ -67,6 +71,32 @@ export function HazardFilters({
           );
         })}
       </div>
+
+      {/* Radius options when Near Me is active */}
+      {nearMeActive && onSelectRadius && (
+        <div className="flex items-center gap-2 pt-1 border-t border-[#DCE4E8]/60 dark:border-slate-800/80">
+          <span className="text-[11px] font-medium text-[#667784] dark:text-slate-400">Radius:</span>
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+            {RADIUS_OPTIONS.map((r) => {
+              const isSelected = radiusKm === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => onSelectRadius(r)}
+                  className={`text-xs px-2.5 py-0.5 rounded-full font-medium transition-colors ${
+                    isSelected
+                      ? "bg-[#087F8C] text-white shadow-xs"
+                      : "bg-[#F7F9FA] dark:bg-[#1B3142] text-[#667784] dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  {r} km
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Secondary filter bar: Status & metadata */}
       <div className="flex items-center justify-between text-xs text-[#667784] dark:text-slate-400">

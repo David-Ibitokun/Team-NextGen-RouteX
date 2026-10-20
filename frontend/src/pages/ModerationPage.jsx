@@ -164,7 +164,8 @@ export function ModerationPage() {
       const res = await aiService.summarizeReport(reportId);
       setAiSummary(res);
     } catch (err) {
-      const msg = err.response?.data?.error || "AI incident summarizer is temporarily unavailable.";
+      const isAuth = err.response?.status === 401 || err.response?.status === 403 || err.response?.data?.detail?.includes("authenticated");
+      const msg = isAuth ? "AI incident summarizer won't work because you are not authenticated. Please sign in to your RouteX account." : (err.response?.data?.error || err.response?.data?.detail || "AI incident summarizer is temporarily unavailable.");
       setAiModalNotice({ type: "error", message: msg });
     } finally {
       setLoadingAiSummary(false);
@@ -185,7 +186,8 @@ export function ModerationPage() {
       });
       setAiDuplicates(res);
     } catch (err) {
-      const msg = err.response?.data?.error || "Duplicate scanner is temporarily unavailable.";
+      const isAuth = err.response?.status === 401 || err.response?.status === 403 || err.response?.data?.detail?.includes("authenticated");
+      const msg = isAuth ? "Duplicate scanner won't work because you are not authenticated. Please sign in to your RouteX account." : (err.response?.data?.error || err.response?.data?.detail || "Duplicate scanner is temporarily unavailable.");
       setAiModalNotice({ type: "error", message: msg });
     } finally {
       setLoadingAiDuplicates(false);

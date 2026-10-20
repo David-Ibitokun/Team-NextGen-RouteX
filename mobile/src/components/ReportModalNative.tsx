@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
   Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   X,
   AlertCircle,
@@ -70,9 +71,12 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
   onSuccess,
   onOpenAuth,
 }) => {
+  const insets = useSafeAreaInsets();
   const { isDark, theme } = useTheme();
   const { isAuthenticated } = useAuth();
   const { height: windowHeight } = useWindowDimensions();
+
+  const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
 
   // Dynamic keyboard inset tracking to prevent keyboard overlap on Android and iOS
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -149,7 +153,35 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
     setAiNotice(null);
   };
 
+  const checkAuthForAi = (featureName: string): boolean => {
+    if (!isAuthenticated) {
+      const authMessage = `AI ${featureName} won't work because you are not authenticated. Sign in to your RouteX account to use AI assistance.`;
+      setAiNotice(authMessage);
+      if (onOpenAuth) {
+        Alert.alert(
+          'Sign In Required for AI',
+          `AI ${featureName} won't work because you are not authenticated.\n\nRouteX AI features require an authenticated account to prevent automated abuse and manage query limits. Would you like to sign in now?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Sign In',
+              onPress: () => {
+                handleClose();
+                onOpenAuth('login');
+              },
+            },
+          ]
+        );
+      }
+      return false;
+    }
+    return true;
+  };
+
   const handleSuggestCategory = async () => {
+    if (!checkAuthForAi('category suggestion')) {
+      return;
+    }
     if (!description.trim() || description.trim().length < 5) {
       setServerError('Please enter at least 5 characters in description for AI to analyze.');
       return;
@@ -160,14 +192,43 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
       const res = await aiService.suggestCategory(description, category);
       setCategorySuggestion(res);
     } catch (err: any) {
-      const msg = err?.data?.error || err?.message || 'AI category suggestion is temporarily unavailable.';
+      const isAuthErr =
+        err?.status === 401 ||
+        err?.status === 403 ||
+        err?.data?.code === 'not_authenticated' ||
+        err?.data?.detail?.toLowerCase().includes('not authenticated') ||
+        err?.message?.toLowerCase().includes('not authenticated') ||
+        err?.data?.detail?.toLowerCase().includes('credentials');
+
+      const msg = isAuthErr
+        ? "AI category suggestion won't work because you are not authenticated. Please sign in to use RouteX AI assistance."
+        : (err?.data?.error || err?.data?.detail || err?.message || 'AI category suggestion is temporarily unavailable.');
       setAiNotice(msg);
+      if (isAuthErr && onOpenAuth) {
+        Alert.alert(
+          'Sign In Required for AI',
+          "AI category suggestion won't work because you are not authenticated. Would you like to sign in now?",
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Sign In',
+              onPress: () => {
+                handleClose();
+                onOpenAuth('login');
+              },
+            },
+          ]
+        );
+      }
     } finally {
       setAiLoading(null);
     }
   };
 
   const handleImproveDescription = async () => {
+    if (!checkAuthForAi('wording refinement')) {
+      return;
+    }
     if (!description.trim() || description.trim().length < 5) {
       setServerError('Please enter at least 5 characters in description to refine.');
       return;
@@ -178,14 +239,43 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
       const res = await aiService.improveDescription(description);
       setDescriptionSuggestion(res);
     } catch (err: any) {
-      const msg = err?.data?.error || err?.message || 'AI wording helper is temporarily unavailable.';
+      const isAuthErr =
+        err?.status === 401 ||
+        err?.status === 403 ||
+        err?.data?.code === 'not_authenticated' ||
+        err?.data?.detail?.toLowerCase().includes('not authenticated') ||
+        err?.message?.toLowerCase().includes('not authenticated') ||
+        err?.data?.detail?.toLowerCase().includes('credentials');
+
+      const msg = isAuthErr
+        ? "AI wording refinement won't work because you are not authenticated. Please sign in to use RouteX AI assistance."
+        : (err?.data?.error || err?.data?.detail || err?.message || 'AI wording helper is temporarily unavailable.');
       setAiNotice(msg);
+      if (isAuthErr && onOpenAuth) {
+        Alert.alert(
+          'Sign In Required for AI',
+          "AI wording refinement won't work because you are not authenticated. Would you like to sign in now?",
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Sign In',
+              onPress: () => {
+                handleClose();
+                onOpenAuth('login');
+              },
+            },
+          ]
+        );
+      }
     } finally {
       setAiLoading(null);
     }
   };
 
   const handleCheckDuplicates = async () => {
+    if (!checkAuthForAi('duplicate scanning')) {
+      return;
+    }
     if (!latitude || !longitude) {
       setServerError('Please select a valid location on the map first.');
       return;
@@ -206,8 +296,34 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
       });
       setDuplicateCheckResult(res);
     } catch (err: any) {
-      const msg = err?.data?.error || err?.message || 'Duplicate scanner is temporarily unavailable.';
+      const isAuthErr =
+        err?.status === 401 ||
+        err?.status === 403 ||
+        err?.data?.code === 'not_authenticated' ||
+        err?.data?.detail?.toLowerCase().includes('not authenticated') ||
+        err?.message?.toLowerCase().includes('not authenticated') ||
+        err?.data?.detail?.toLowerCase().includes('credentials');
+
+      const msg = isAuthErr
+        ? "AI duplicate scanner won't work because you are not authenticated. Please sign in to use RouteX AI assistance."
+        : (err?.data?.error || err?.data?.detail || err?.message || 'Duplicate scanner is temporarily unavailable.');
       setAiNotice(msg);
+      if (isAuthErr && onOpenAuth) {
+        Alert.alert(
+          'Sign In Required for AI',
+          "AI duplicate scanning won't work because you are not authenticated. Would you like to sign in now?",
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Sign In',
+              onPress: () => {
+                handleClose();
+                onOpenAuth('login');
+              },
+            },
+          ]
+        );
+      }
     } finally {
       setAiLoading(null);
     }
@@ -361,10 +477,17 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
       statusBarTranslucent={false}
       onRequestClose={handleClose}
     >
-      <View style={styles.modalOverlay}>
+      <View
+        style={[
+          styles.modalOverlay,
+          {
+            paddingBottom: keyboardHeight > 0 ? keyboardHeight : 0,
+          },
+        ]}
+      >
         <KeyboardAvoidingView
           style={styles.keyboardAvoider}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View
             style={[
@@ -373,6 +496,7 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
                 backgroundColor: theme.surface,
                 borderColor: theme.border,
                 maxHeight: modalMaxHeight,
+                paddingBottom: keyboardHeight > 0 ? 8 : bottomSafePadding,
               },
             ]}
           >

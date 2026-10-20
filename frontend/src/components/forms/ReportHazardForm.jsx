@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import {
   AlertCircle,
   AlertTriangle,
@@ -30,6 +32,7 @@ const CATEGORY_ICONS = {
 };
 
 export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
+  const { isAuthenticated } = useAuth();
   const [category, setCategory] = useState("flooding");
   const [locationLabel, setLocationLabel] = useState("");
   const [description, setDescription] = useState("");
@@ -143,7 +146,20 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
     setPhotoStats(null);
   };
 
+  const checkAuthForAi = (featureName) => {
+    if (!isAuthenticated) {
+      setAiNotice({
+        type: "error",
+        message: `AI ${featureName} won't work because you are not authenticated. Please sign in to your RouteX account to use AI assistance.`,
+        isAuthError: true,
+      });
+      return false;
+    }
+    return true;
+  };
+
   const handleSuggestCategory = async () => {
+    if (!checkAuthForAi("category suggestion")) return;
     if (!description.trim() || description.trim().length < 5) {
       setErrors((prev) => ({
         ...prev,
@@ -157,14 +173,18 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
       const res = await aiService.suggestCategory(description, category);
       setCategorySuggestion(res);
     } catch (err) {
-      const msg = err.response?.data?.error || "AI category suggestion is temporarily unavailable.";
-      setAiNotice({ type: "error", message: msg });
+      const isAuthErr = err.response?.status === 401 || err.response?.status === 403 || err.response?.data?.detail?.toLowerCase().includes("not authenticated");
+      const msg = isAuthErr
+        ? "AI category suggestion won't work because you are not authenticated. Please sign in to use RouteX AI assistance."
+        : (err.response?.data?.error || err.response?.data?.detail || "AI category suggestion is temporarily unavailable.");
+      setAiNotice({ type: "error", message: msg, isAuthError: isAuthErr });
     } finally {
       setAiLoading(null);
     }
   };
 
   const handleImproveDescription = async () => {
+    if (!checkAuthForAi("wording refinement")) return;
     if (!description.trim() || description.trim().length < 5) {
       setErrors((prev) => ({
         ...prev,
@@ -178,14 +198,18 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
       const res = await aiService.improveDescription(description);
       setDescriptionSuggestion(res);
     } catch (err) {
-      const msg = err.response?.data?.error || "AI wording helper is temporarily unavailable.";
-      setAiNotice({ type: "error", message: msg });
+      const isAuthErr = err.response?.status === 401 || err.response?.status === 403 || err.response?.data?.detail?.toLowerCase().includes("not authenticated");
+      const msg = isAuthErr
+        ? "AI wording refinement won't work because you are not authenticated. Please sign in to use RouteX AI assistance."
+        : (err.response?.data?.error || err.response?.data?.detail || "AI wording helper is temporarily unavailable.");
+      setAiNotice({ type: "error", message: msg, isAuthError: isAuthErr });
     } finally {
       setAiLoading(null);
     }
   };
 
   const handleCheckDuplicates = async () => {
+    if (!checkAuthForAi("duplicate scanning")) return;
     if (!latitude || !longitude) {
       setErrors((prev) => ({
         ...prev,
@@ -212,8 +236,11 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
       });
       setDuplicateCheckResult(res);
     } catch (err) {
-      const msg = err.response?.data?.error || "Duplicate scanner is temporarily unavailable.";
-      setAiNotice({ type: "error", message: msg });
+      const isAuthErr = err.response?.status === 401 || err.response?.status === 403 || err.response?.data?.detail?.toLowerCase().includes("not authenticated");
+      const msg = isAuthErr
+        ? "AI duplicate scanning won't work because you are not authenticated. Please sign in to use RouteX AI assistance."
+        : (err.response?.data?.error || err.response?.data?.detail || "Duplicate scanner is temporarily unavailable.");
+      setAiNotice({ type: "error", message: msg, isAuthError: isAuthErr });
     } finally {
       setAiLoading(null);
     }
@@ -775,12 +802,25 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
           )}
 
           {aiNotice && (
-            <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
-              <span>{aiNotice.message}</span>
+            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-start justify-between gap-2">
+              <div className="flex-1 space-y-1.5">
+                <p className="leading-relaxed">{aiNotice.message}</p>
+                {aiNotice.isAuthError && (
+                  <div>
+                    <Link
+                      to="/login?next=/report"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-white bg-[#087F8C] hover:bg-[#0aa3b3] rounded-md transition-colors shadow-xs"
+                    >
+                      Sign In to RouteX
+                    </Link>
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => setAiNotice(null)}
-                className="text-amber-600 hover:text-amber-900 ml-2 font-bold text-sm"
+                className="text-amber-600 hover:text-amber-900 dark:text-amber-400 font-bold text-sm px-1"
+                aria-label="Dismiss notice"
               >
                 &times;
               </button>

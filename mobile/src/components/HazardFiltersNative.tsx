@@ -4,6 +4,8 @@ import { Navigation, X } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { HAZARD_CATEGORIES, HAZARD_STATUSES } from '../constants/hazardTypes';
 
+export const RADIUS_OPTIONS = [2, 5, 10, 25, 50];
+
 interface HazardFiltersNativeProps {
   selectedCategory: string;
   onSelectCategory: (catId: string) => void;
@@ -13,6 +15,8 @@ interface HazardFiltersNativeProps {
   nearMeActive?: boolean;
   onToggleNearMe?: () => void;
   locating?: boolean;
+  radiusKm?: number;
+  onSelectRadius?: (radius: number) => void;
 }
 
 export const HazardFiltersNative: React.FC<HazardFiltersNativeProps> = ({
@@ -24,6 +28,8 @@ export const HazardFiltersNative: React.FC<HazardFiltersNativeProps> = ({
   nearMeActive = false,
   onToggleNearMe,
   locating = false,
+  radiusKm = 10,
+  onSelectRadius,
 }) => {
   const { isDark, theme } = useTheme();
 
@@ -62,7 +68,7 @@ export const HazardFiltersNative: React.FC<HazardFiltersNativeProps> = ({
                 { color: nearMeActive ? '#FFFFFF' : theme.teal, fontWeight: '700' },
               ]}
             >
-              {nearMeActive ? 'Near Me (10 km)' : 'Near Me'}
+              {nearMeActive ? `Near Me (${radiusKm} km)` : 'Near Me'}
             </Text>
             {nearMeActive && <X size={12} color="#FFFFFF" />}
           </TouchableOpacity>
@@ -116,6 +122,41 @@ export const HazardFiltersNative: React.FC<HazardFiltersNativeProps> = ({
           );
         })}
       </ScrollView>
+
+      {/* Radius Selector Row (Visible when Near Me is active) */}
+      {nearMeActive && onSelectRadius && (
+        <View style={styles.radiusRow}>
+          <Text style={[styles.radiusLabel, { color: theme.textMuted }]}>Radius:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.radiusPills}>
+            {RADIUS_OPTIONS.map((r) => {
+              const isSelected = radiusKm === r;
+              return (
+                <TouchableOpacity
+                  key={r}
+                  onPress={() => onSelectRadius(r)}
+                  style={[
+                    styles.radiusPill,
+                    {
+                      backgroundColor: isSelected ? theme.teal : isDark ? '#1C3144' : '#E6F4F6',
+                      borderColor: isSelected ? theme.tealDark : theme.teal + '55',
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.radiusPillText,
+                      { color: isSelected ? '#FFFFFF' : theme.teal, fontWeight: isSelected ? '700' : '500' },
+                    ]}
+                  >
+                    {r} km
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Status Filter Row */}
       <View style={styles.statusRow}>
@@ -193,6 +234,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusPillText: {
+    fontSize: 11,
+  },
+  radiusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  radiusLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  radiusPills: {
+    gap: 6,
+  },
+  radiusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  radiusPillText: {
     fontSize: 11,
   },
 });

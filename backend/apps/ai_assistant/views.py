@@ -5,8 +5,8 @@ Views for RouteX AI Assistant Endpoints
 import logging
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import status, exceptions
+from rest_framework.permissions import BasePermission
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from apps.hazards.models import HazardReport
@@ -49,11 +49,35 @@ def handle_ai_exception(exc: Exception) -> Response:
     )
 
 
-class SuggestCategoryView(APIView):
+class IsAuthenticatedForAi(BasePermission):
+    """
+    Enforces authentication for RouteX AI endpoints and provides a clear,
+    descriptive reason explaining that an authenticated account is required.
+    """
+    message = "AI features won't work because you are not authenticated. Please sign in to your RouteX account to use AI assistance."
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
+
+
+class BaseAiView(APIView):
+    """Base API view for all AI endpoints enforcing authentication with a clear rejection reason."""
+    permission_classes = [IsAuthenticatedForAi]
+
+    def permission_denied(self, request, message=None, code=None):
+        if not request.user or not request.user.is_authenticated:
+            raise exceptions.PermissionDenied(
+                detail="AI features won't work because you are not authenticated. Please sign in to your RouteX account to use AI assistance.",
+                code="not_authenticated",
+            )
+        super().permission_denied(request, message=message, code=code)
+
+
+class SuggestCategoryView(BaseAiView):
     """
     Suggests the most accurate RouteX road hazard category based on report description text.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedForAi]
 
     @extend_schema(
         tags=["ai"],
@@ -81,11 +105,11 @@ class SuggestCategoryView(APIView):
             return handle_ai_exception(exc)
 
 
-class ImproveDescriptionView(APIView):
+class ImproveDescriptionView(BaseAiView):
     """
     Polishes description text for spelling, grammar, and readability without adding unobserved facts.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedForAi]
 
     @extend_schema(
         tags=["ai"],
@@ -112,11 +136,11 @@ class ImproveDescriptionView(APIView):
             return handle_ai_exception(exc)
 
 
-class SummarizeReportView(APIView):
+class SummarizeReportView(BaseAiView):
     """
     Generates a concise 1-2 sentence neutral summary of an existing hazard report.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedForAi]
 
     @extend_schema(
         tags=["ai"],
@@ -151,11 +175,11 @@ class SummarizeReportView(APIView):
             return handle_ai_exception(exc)
 
 
-class CheckDuplicatesView(APIView):
+class CheckDuplicatesView(BaseAiView):
     """
     Heuristic hybrid duplicate detector combining spatial radius, time window, and semantic AI.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedForAi]
 
     @extend_schema(
         tags=["ai"],

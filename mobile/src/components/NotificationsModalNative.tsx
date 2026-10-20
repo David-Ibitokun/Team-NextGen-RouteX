@@ -6,7 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   X,
   Bell,
@@ -39,9 +41,12 @@ export const NotificationsModalNative: React.FC<NotificationsModalNativeProps> =
   onClose,
   onNotificationsChanged,
 }) => {
+  const insets = useSafeAreaInsets();
   const { isDark, theme } = useTheme();
   const [notifications, setNotifications] = useState<RouteXNotification[]>([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
+
+  const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
 
   const loadNotifications = async () => {
     const list = await getNotificationHistory();
@@ -99,7 +104,16 @@ export const NotificationsModalNative: React.FC<NotificationsModalNativeProps> =
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.modalCard,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              paddingBottom: bottomSafePadding,
+            },
+          ]}
+        >
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: theme.borderSubtle }]}>
             <View style={styles.headerLeft}>
