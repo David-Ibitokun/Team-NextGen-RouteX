@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiRequest } from './apiClient';
 
 export interface RouteXNotification {
   id: string;
@@ -77,17 +78,46 @@ export async function setupNotificationChannels(): Promise<boolean> {
 
     if (typeof Notifications.getPermissionsAsync === 'function') {
       const settings = await Notifications.getPermissionsAsync();
-      return (
+      const granted = (
         settings?.granted ||
         settings?.ios?.status === 1 || // PROVISIONAL
         settings?.ios?.status === 2    // AUTHORIZED
       );
+      if (granted && typeof Notifications.getExpoPushTokenAsync === 'function') {
+        try {
+          const tokenData = await Notifications.getExpoPushTokenAsync();
+          if (tokenData?.data) {
+            registerDevicePushToken(tokenData.data).catch(() => {});
+          }
+        } catch {
+          // Token registration may fail if running without Expo Project ID or in bare test
+        }
+      }
+      return granted;
     }
   } catch {
     // Gracefully fallback if notifications native runtime is restricted
   }
 
   return false;
+}
+
+/**
+ * Register mobile device push token with backend notifications API
+ */
+export async function registerDevicePushToken(token: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    await apiRequest('/notifications/devices/', {
+      method: 'POST',
+      body: JSON.stringify({ token, platform: Platform.OS }),
+      headers: { 'Content-Type': 'application/json' },
+      timeoutMs: 5000,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -114,9 +144,46 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 /**
- * Fetch saved notifications history from AsyncStorage
+ * Fetch saved notifications history.
+ * If authenticated, fetches remote notifications from backend API and synchronizes locally.
+ * If offline or guest, falls back to AsyncStorage.
  */
 export async function getNotificationHistory(): Promise<RouteXNotification[]> {
+  try {
+    const res = await apiRequest<{ results?: any[]; count?: number }>('/notifications/', {
+      timeoutMs: 5000,
+    });
+    if (res && Array.isArray(res.results)) {
+      const remoteList: RouteXNotification[] = res.results.map((item) => ({
+        id: String(item.id),
+        title: item.title,
+        body: item.body,
+        createdAt: item.created_at,
+        type:
+          item.notification_type === 'hazard_confirmed'
+            ? 'confirmation'
+            : item.notification_type === 'hazard_reported'
+            ? 'report'
+            : item.notification_type === 'safety_advisory'
+            ? 'alert'
+            : 'system',
+        read: Boolean(item.is_read),
+        data: {
+          targetHazardId: item.target_hazard_id,
+          category: item.target_hazard_category,
+          location: item.target_hazard_location,
+          ...(item.metadata || {}),
+        },
+      }));
+
+      // Cache latest 50 to AsyncStorage
+      await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(remoteList.slice(0, 50)));
+      return remoteList;
+    }
+  } catch {
+    // Fall back to AsyncStorage when offline or unauthenticated
+  }
+
   try {
     const raw = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
     if (!raw) return [];
@@ -127,11 +194,37 @@ export async function getNotificationHistory(): Promise<RouteXNotification[]> {
 }
 
 /**
+ * Mark a single notification as read
+ */
+export async function markNotificationRead(id: string): Promise<void> {
+  const numId = parseInt(id, 10);
+  if (!isNaN(numId)) {
+    try {
+      await apiRequest(`/notifications/${numId}/read/`, { method: 'PATCH', timeoutMs: 4000 });
+    } catch {
+      // ignore
+    }
+  }
+
+  try {
+    const raw = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    if (raw) {
+      const list: RouteXNotification[] = JSON.parse(raw);
+      const updated = list.map((n) => (n.id === id ? { ...n, read: true } : n));
+      await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/**
  * Save notification item to history
  */
 async function saveToHistory(item: RouteXNotification): Promise<void> {
   try {
-    const existing = await getNotificationHistory();
+    const raw = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const existing: RouteXNotification[] = raw ? JSON.parse(raw) : [];
     const updated = [item, ...existing.slice(0, 49)]; // Keep latest 50
     await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
   } catch {
@@ -144,7 +237,14 @@ async function saveToHistory(item: RouteXNotification): Promise<void> {
  */
 export async function markAllNotificationsRead(): Promise<RouteXNotification[]> {
   try {
-    const existing = await getNotificationHistory();
+    await apiRequest('/notifications/mark-all-read/', { method: 'POST', timeoutMs: 5000 });
+  } catch {
+    // ignore
+  }
+
+  try {
+    const raw = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const existing: RouteXNotification[] = raw ? JSON.parse(raw) : [];
     const updated = existing.map((n) => ({ ...n, read: true }));
     await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
     return updated;

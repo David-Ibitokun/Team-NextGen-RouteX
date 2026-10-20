@@ -42,6 +42,7 @@ def api_root(request):
             "moderation": request.build_absolute_uri("/api/v1/moderation/"),
             "admin": request.build_absolute_uri("/api/v1/admin/"),
             "ai": request.build_absolute_uri("/api/v1/ai/"),
+            "notifications": request.build_absolute_uri("/api/v1/notifications/"),
             "health": request.build_absolute_uri("/api/v1/health/"),
         }
     })
@@ -83,6 +84,7 @@ urlpatterns = [
     path("api/v1/moderation/", include("apps.moderation.urls")),
     path("api/v1/admin/", include("apps.accounts.urls_admin")),
     path("api/v1/ai/", include("apps.ai_assistant.urls")),
+    path("api/v1/notifications/", include("apps.notifications.urls")),
 ]
 
 if settings.DEBUG:

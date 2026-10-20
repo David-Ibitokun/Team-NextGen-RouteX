@@ -31,14 +31,15 @@ import {
   X,
   MapPin,
   Loader2,
+  ThumbsUp,
   LogIn,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { HAZARD_CATEGORIES } from '../constants/hazardTypes';
-import { submitHazard } from '../services/hazardService';
-import { notifyHazardReported } from '../services/notificationService';
+import { submitHazard, confirmHazard } from '../services/hazardService';
+import { notifyHazardReported, notifyHazardConfirmed } from '../services/notificationService';
 import {
   aiService,
   SuggestCategoryResult,
@@ -100,7 +101,31 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
   const [categorySuggestion, setCategorySuggestion] = useState<SuggestCategoryResult | null>(null);
   const [descriptionSuggestion, setDescriptionSuggestion] = useState<ImproveDescriptionResult | null>(null);
   const [duplicateCheckResult, setDuplicateCheckResult] = useState<CheckDuplicatesResult | null>(null);
+  const [confirmingCandidateId, setConfirmingCandidateId] = useState<number | null>(null);
+  const [dismissedDuplicates, setDismissedDuplicates] = useState(false);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
+
+  // Auto-scan for nearby duplicates when coordinates and description change
+  useEffect(() => {
+    if (!isAuthenticated || dismissedDuplicates) return;
+    if (!latitude || !longitude || !description.trim() || description.trim().length < 10) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      aiService
+        .checkDuplicates({
+          latitude,
+          longitude,
+          description: description.trim(),
+          category,
+          radius_km: 1.0,
+        })
+        .then((res) => setDuplicateCheckResult(res))
+        .catch(() => {});
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [latitude, longitude, description, category, dismissedDuplicates, isAuthenticated]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -139,6 +164,8 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
     setCategorySuggestion(null);
     setDescriptionSuggestion(null);
     setDuplicateCheckResult(null);
+    setDismissedDuplicates(false);
+    setConfirmingCandidateId(null);
     setAiNotice(null);
   };
 
@@ -294,6 +321,40 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
     }
   };
 
+  const handleConfirmCandidate = async (candidateId: number) => {
+    if (!isAuthenticated) {
+      if (onOpenAuth) {
+        Alert.alert(
+          'Sign In Required',
+          'Please sign in to upvote and confirm existing road hazards.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign In', onPress: () => onOpenAuth('login') },
+          ]
+        );
+      } else {
+        Alert.alert('Sign In Required', 'Please sign in to confirm existing road hazards.');
+      }
+      return;
+    }
+
+    setConfirmingCandidateId(candidateId);
+    try {
+      await confirmHazard(candidateId);
+      notifyHazardConfirmed(candidateId);
+      Alert.alert(
+        'Hazard Confirmed',
+        'Thank you! You verified this existing hazard for your fellow commuters.',
+        [{ text: 'OK', onPress: onSuccess }]
+      );
+    } catch (err: any) {
+      const msg = err?.data?.detail || err?.message || 'Could not confirm this hazard right now.';
+      Alert.alert('Error', msg);
+    } finally {
+      setConfirmingCandidateId(null);
+    }
+  };
+
   const handleLocationChange = (lat: number, lng: number) => {
     setLatitude(lat);
     setLongitude(lng);
@@ -376,7 +437,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
     setPhotoName(null);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (bypassDuplicateCheck = false) => {
     setServerError('');
     if (!locationName.trim() || locationName.trim().length < 3) {
       setServerError('Please enter the road or landmark name (minimum 3 characters). This is compulsory for roads not named on the map.');
@@ -384,6 +445,25 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
     }
     if (!description.trim() || description.trim().length < 5) {
       setServerError('Please describe what road condition commuters should avoid (minimum 5 characters).');
+      return;
+    }
+
+    if (!bypassDuplicateCheck && !dismissedDuplicates && duplicateCheckResult?.is_possible_duplicate) {
+      Alert.alert(
+        'Similar Hazard Reported Nearby',
+        'A matching road hazard was recently reported within 1km. You can confirm the existing report to help it gain verification or proceed with submitting yours.',
+        [
+          { text: 'Review Duplicates', style: 'cancel' },
+          {
+            text: 'Submit Anyway',
+            style: 'default',
+            onPress: () => {
+              setDismissedDuplicates(true);
+              handleSubmit(true);
+            },
+          },
+        ]
+      );
       return;
     }
 
@@ -1064,6 +1144,33 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                               >
                                 {cand.match_rationale}
                               </Text>
+                              <View style={styles.candFooterRow}>
+                                <Text style={{ fontSize: 9.5, color: theme.textMuted }}>
+                                  Already reported nearby?
+                                </Text>
+                                <TouchableOpacity
+                                  style={[
+                                    styles.candConfirmBtn,
+                                    {
+                                      backgroundColor: isDark ? 'rgba(8, 127, 140, 0.2)' : '#E6FFFA',
+                                      borderColor: isDark ? 'rgba(8, 127, 140, 0.4)' : '#99F6E4',
+                                      borderWidth: 1,
+                                    },
+                                  ]}
+                                  onPress={() => handleConfirmCandidate(cand.id)}
+                                  disabled={confirmingCandidateId === cand.id}
+                                  activeOpacity={0.7}
+                                >
+                                  {confirmingCandidateId === cand.id ? (
+                                    <ActivityIndicator size="small" color={theme.teal} />
+                                  ) : (
+                                    <ThumbsUp size={11} color={theme.teal} />
+                                  )}
+                                  <Text style={[styles.candConfirmText, { color: theme.teal }]}>
+                                    Confirm This Hazard Instead
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
                             </View>
                           ))}
                         </View>
@@ -1619,6 +1726,27 @@ const styles = StyleSheet.create({
   candRationale: {
     fontSize: 10,
     fontStyle: 'italic',
+  },
+  candFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(148, 163, 184, 0.25)',
+  },
+  candConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  candConfirmText: {
+    fontSize: 10.5,
+    fontWeight: '700',
   },
   dedupClearText: {
     fontSize: 11.5,

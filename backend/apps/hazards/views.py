@@ -272,7 +272,13 @@ class HazardReportViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         reporter = self.request.user if self.request.user.is_authenticated else None
-        serializer.save(reporter=reporter)
+        report = serializer.save(reporter=reporter)
+        if reporter:
+            try:
+                from apps.notifications.services import NotificationService
+                NotificationService.notify_hazard_reported(report, reporter)
+            except Exception:
+                pass
 
     @extend_schema(
         tags=["hazards"],
@@ -323,9 +329,19 @@ class HazardReportViewSet(viewsets.ModelViewSet):
         CONFIRMATION_THRESHOLD = 3
         new_count = report.confirmations.count()
         report.confirmations_count = new_count
+        reached_verified = False
         if new_count >= CONFIRMATION_THRESHOLD and report.status == HazardStatus.REPORTED:
             report.status = HazardStatus.COMMUNITY_CONFIRMED
+            reached_verified = True
         report.save(update_fields=["confirmations_count", "status"])
+
+        try:
+            from apps.notifications.services import NotificationService
+            NotificationService.notify_hazard_confirmed(report, user)
+            if reached_verified:
+                NotificationService.notify_hazard_verified_milestone(report)
+        except Exception:
+            pass
 
         return Response(
             {
@@ -367,6 +383,12 @@ class HazardReportViewSet(viewsets.ModelViewSet):
 
         report.flags_count = report.flags.count()
         report.save(update_fields=["flags_count"])
+
+        try:
+            from apps.notifications.services import NotificationService
+            NotificationService.notify_moderators_flagged(report, flag_instance)
+        except Exception:
+            pass
 
         serializer = HazardFlagSerializer(flag_instance)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

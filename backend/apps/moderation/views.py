@@ -148,6 +148,7 @@ def moderation_report_action(request, pk):
         "reject": HazardStatus.REJECTED,
     }
 
+    old_status = report.status
     new_status = action_status_map.get(action)
     if new_status:
         report.status = new_status
@@ -159,6 +160,18 @@ def moderation_report_action(request, pk):
         action=action,
         reason=reason,
     )
+
+    try:
+        from apps.notifications.services import NotificationService
+        NotificationService.notify_hazard_status_changed(
+            report=report,
+            old_status=old_status,
+            new_status=new_status,
+            reason=reason,
+            moderator=request.user,
+        )
+    except Exception:
+        pass
 
     updated_report = HazardReportSerializer(report, context={"request": request}).data
     return Response({

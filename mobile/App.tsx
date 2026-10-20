@@ -479,6 +479,13 @@ function RouteXNativeMain() {
         visible={showNotificationsModal}
         onClose={() => setShowNotificationsModal(false)}
         onNotificationsChanged={refreshNotificationsCount}
+        onSelectHazardId={(hazardId) => {
+          setShowNotificationsModal(false);
+          const found = hazards.find((h) => Number(h.id) === Number(hazardId));
+          if (found) {
+            setSelectedHazardToView(found);
+          }
+        }}
       />
     </SafeAreaView>
   );

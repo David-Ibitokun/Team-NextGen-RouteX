@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "apps.hazards.apps.HazardsConfig",
     "apps.moderation.apps.ModerationConfig",
     "apps.ai_assistant.apps.AiAssistantConfig",
+    "apps.notifications.apps.NotificationsConfig",
 ]
 
 MIDDLEWARE = [

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -13,6 +13,10 @@ import {
   Sliders,
   Sparkles,
   TreePine,
+  ThumbsUp,
+  Navigation,
+  ArrowRight,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { RouteXLogo } from "../common/RouteXLogo";
@@ -22,6 +26,7 @@ import { hazardService } from "../../services/apiClient";
 import { aiService } from "../../services/aiService";
 import { AISuggestionCard } from "../ai/AISuggestionCard";
 import { convertToWebP, formatFileSize } from "../../utils/imageOptimizer";
+import { useAuth } from "../../context/AuthContext";
 
 const CATEGORY_ICONS = {
   flooding: Droplets,
@@ -51,10 +56,15 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
   const [photoStats, setPhotoStats] = useState(null);
 
   // AI Assistant States
+  const { user } = useAuth();
   const [aiLoading, setAiLoading] = useState(null); // 'category' | 'description' | 'duplicates' | null
   const [categorySuggestion, setCategorySuggestion] = useState(null);
   const [descriptionSuggestion, setDescriptionSuggestion] = useState(null);
   const [duplicateCheckResult, setDuplicateCheckResult] = useState(null);
+  const [confirmingCandidateId, setConfirmingCandidateId] = useState(null);
+  const [confirmedExistingReport, setConfirmedExistingReport] = useState(null);
+  const [dismissedDuplicates, setDismissedDuplicates] = useState(false);
+  const [showPreSubmitModal, setShowPreSubmitModal] = useState(false);
   const [aiNotice, setAiNotice] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -208,41 +218,91 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
     }
   };
 
-  const handleCheckDuplicates = async () => {
-    if (!checkAuthForAi("duplicate scanning")) return;
-    if (!latitude || !longitude) {
-      setErrors((prev) => ({
-        ...prev,
-        coordinates: "Please pick a location on the map first.",
-      }));
+  const runDuplicateScan = useCallback(
+    async (isManual = false) => {
+      if (!latitude || !longitude) {
+        if (isManual) {
+          setErrors((prev) => ({
+            ...prev,
+            coordinates: "Please pick a location on the map first.",
+          }));
+        }
+        return;
+      }
+      if (!description.trim() || description.trim().length < 5) {
+        if (isManual) {
+          setErrors((prev) => ({
+            ...prev,
+            description: "Please enter a description to compare against existing hazards.",
+          }));
+        }
+        return;
+      }
+
+      // Guest sessions do not have AI access on backend
+      if (!user && !isManual) return;
+
+      setAiLoading("duplicates");
+      if (isManual) setAiNotice(null);
+      try {
+        const res = await aiService.checkDuplicates({
+          latitude,
+          longitude,
+          description: description.trim(),
+          category,
+          radius_km: 1.0,
+        });
+        setDuplicateCheckResult(res);
+        setDismissedDuplicates(false);
+      } catch (err) {
+        if (isManual) {
+          const msg = err.response?.data?.error || "Duplicate scanner is temporarily unavailable.";
+          setAiNotice({ type: "error", message: msg });
+        }
+      } finally {
+        setAiLoading(null);
+      }
+    },
+    [latitude, longitude, description, category, user]
+  );
+
+  const handleCheckDuplicates = () => {
+    runDuplicateScan(true);
+  };
+
+  // Debounced auto-scan when pin location or description changes
+  useEffect(() => {
+    if (!user || dismissedDuplicates) return;
+    if (!latitude || !longitude || !description.trim() || description.trim().length < 10) {
       return;
     }
-    if (!description.trim() || description.trim().length < 5) {
-      setErrors((prev) => ({
-        ...prev,
-        description: "Please enter a description to compare against existing hazards.",
-      }));
-      return;
-    }
-    setAiLoading("duplicates");
-    setAiNotice(null);
+    const timer = setTimeout(() => {
+      runDuplicateScan(false);
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [latitude, longitude, description, category, user, dismissedDuplicates, runDuplicateScan]);
+
+  const handleConfirmCandidate = async (candidate) => {
     try {
-      const res = await aiService.checkDuplicates({
-        latitude,
-        longitude,
-        description,
-        category,
-        radius_km: 1.0,
+      setConfirmingCandidateId(candidate.id);
+      const res = await hazardService.confirmHazard(candidate.id);
+      setConfirmedExistingReport({
+        id: candidate.id,
+        category: candidate.category_display || candidate.category,
+        location: candidate.location_label || "Road Hazard",
+        confirmationsCount: res?.confirmations_count || 1,
       });
-      setDuplicateCheckResult(res);
+      setTimeout(() => {
+        if (onSuccess) onSuccess({ id: candidate.id, confirmed: true });
+      }, 1600);
     } catch (err) {
-      const isAuthErr = err.response?.status === 401 || err.response?.status === 403 || err.response?.data?.detail?.toLowerCase().includes("not authenticated");
-      const msg = isAuthErr
-        ? "AI duplicate scanning won't work because you are not authenticated. Please sign in to use RouteX AI assistance."
-        : (err.response?.data?.error || err.response?.data?.detail || "Duplicate scanner is temporarily unavailable.");
-      setAiNotice({ type: "error", message: msg, isAuthError: isAuthErr });
+      setAiNotice({
+        type: "error",
+        message: err.response?.data?.detail || "Could not confirm existing report. Please try again.",
+      });
     } finally {
-      setAiLoading(null);
+      setConfirmingCandidateId(null);
     }
   };
 
@@ -267,12 +327,23 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
     return errs;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, forceProceed = false) => {
+    if (e) e.preventDefault();
     setServerError("");
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      return;
+    }
+
+    // Pre-submission guard: if a likely duplicate is detected nearby and not yet dismissed/forced
+    if (
+      !forceProceed &&
+      !dismissedDuplicates &&
+      duplicateCheckResult?.is_possible_duplicate &&
+      duplicateCheckResult.candidates?.length > 0
+    ) {
+      setShowPreSubmitModal(true);
       return;
     }
 
@@ -313,6 +384,24 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
       setSubmitting(false);
     }
   };
+
+  if (confirmedExistingReport) {
+    return (
+      <div className="p-8 text-center bg-white dark:bg-[#142533] rounded-2xl border border-teal-200 dark:border-teal-800 space-y-4 shadow-sm transition-colors my-auto animate-fadeIn">
+        <div className="w-14 h-14 rounded-full bg-teal-100 dark:bg-teal-950/60 flex items-center justify-center mx-auto text-[#087F8C] dark:text-teal-300">
+          <ThumbsUp className="w-7 h-7" />
+        </div>
+        <h3 className="text-xl font-bold text-[#142B3B] dark:text-white">Existing Hazard Confirmed!</h3>
+        <p className="text-xs sm:text-sm text-[#667784] dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
+          Thank you! You confirmed the presence of{" "}
+          <strong className="text-[#142B3B] dark:text-white">
+            #{confirmedExistingReport.id} ({confirmedExistingReport.category})
+          </strong>{" "}
+          at {confirmedExistingReport.location}. This updated the community freshness and prevented a duplicate report!
+        </p>
+      </div>
+    );
+  }
 
   if (isSuccess) {
     return (
@@ -737,57 +826,129 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[#142B3B] dark:text-slate-200 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#087F8C] dark:text-teal-400" />
-              <span>Smart Deduplication</span>
+              <span>Smart Deduplication Guard</span>
             </span>
-            <button
-              type="button"
-              onClick={handleCheckDuplicates}
-              disabled={aiLoading === "duplicates"}
-              className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold text-[#087F8C] dark:text-teal-400 bg-teal-50/80 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/50 rounded-lg border border-teal-200/80 dark:border-teal-800 transition-colors disabled:opacity-50"
-            >
-              {aiLoading === "duplicates" ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Sparkles className="w-3 h-3" />
+
+            <div className="flex items-center gap-2">
+              {aiLoading === "duplicates" && (
+                <span className="text-[11px] font-medium text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Scanning nearby...</span>
+                </span>
               )}
-              <span>Scan Nearby Duplicates</span>
-            </button>
+              {duplicateCheckResult && !aiLoading && (
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                    duplicateCheckResult.is_possible_duplicate
+                      ? "bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                      : "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                  }`}
+                >
+                  {duplicateCheckResult.is_possible_duplicate ? (
+                    <>
+                      <AlertTriangle className="w-2.5 h-2.5" />
+                      <span>{duplicateCheckResult.candidates.length} Match Nearby</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-2.5 h-2.5" />
+                      <span>No Duplicates</span>
+                    </>
+                  )}
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={handleCheckDuplicates}
+                disabled={aiLoading === "duplicates"}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[#087F8C] dark:text-teal-400 bg-teal-50/80 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/50 rounded-lg border border-teal-200/80 dark:border-teal-800 transition-colors disabled:opacity-50"
+              >
+                {aiLoading === "duplicates" ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                <span>Rescan</span>
+              </button>
+            </div>
           </div>
 
           {duplicateCheckResult && (
             <AISuggestionCard
               title={
                 duplicateCheckResult.is_possible_duplicate
-                  ? "Potential Duplicate Detected"
+                  ? "Similar Hazard Already Reported Nearby"
                   : "No Duplicates Found"
               }
               subtitle={`${duplicateCheckResult.nearby_count} active reports within 1km`}
               content={
                 duplicateCheckResult.candidates.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <p className="font-semibold text-amber-800 dark:text-amber-300 text-xs">
                       {duplicateCheckResult.analysis}
                     </p>
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                       {duplicateCheckResult.candidates.map((cand) => (
                         <div
                           key={cand.id}
-                          className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] space-y-0.5"
+                          className="p-3 rounded-xl bg-white dark:bg-[#1B3142] border border-amber-200 dark:border-amber-800/80 text-[11px] space-y-2 shadow-2xs"
                         >
                           <div className="flex justify-between items-center font-bold text-[#142B3B] dark:text-white">
-                            <span>#{cand.id} {cand.category_display}</span>
-                            <span className="text-teal-600 dark:text-teal-400 font-mono text-[10px]">
-                              {cand.distance_meters}m away
+                            <span className="flex items-center gap-1.5 flex-wrap">
+                              <span className="px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-900/50 text-[#087F8C] dark:text-teal-300 font-bold">
+                                #{cand.id} {cand.category_display}
+                              </span>
+                              {cand.location_label && (
+                                <span className="font-medium text-slate-600 dark:text-slate-300 truncate max-w-[150px]">
+                                  {cand.location_label}
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-teal-600 dark:text-teal-400 font-mono text-[10px] font-bold shrink-0">
+                              {cand.distance_meters < 1000 ? `${cand.distance_meters}m` : `${(cand.distance_meters / 1000).toFixed(1)}km`} away
                             </span>
                           </div>
-                          <p className="text-[#667784] dark:text-slate-400 line-clamp-1">
-                            {cand.description}
+
+                          <p className="text-[#667784] dark:text-slate-300 line-clamp-2">
+                            "{cand.description}"
                           </p>
-                          <p className="text-amber-700 dark:text-amber-400 text-[10px] italic">
-                            {cand.match_rationale}
-                          </p>
+
+                          <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-[10px]">
+                            <strong>AI Match:</strong> {cand.match_rationale}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 gap-2">
+                            <span className="text-[10px] text-slate-500">
+                              Confirmed by {cand.confirmations_count || 0} user{cand.confirmations_count === 1 ? "" : "s"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmCandidate(cand)}
+                              disabled={confirmingCandidateId === cand.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#087F8C] hover:bg-[#0aa3b3] rounded-lg transition-all shadow-xs disabled:opacity-50"
+                              title="Confirm this hazard report instead of creating a duplicate"
+                            >
+                              {confirmingCandidateId === cand.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <ThumbsUp className="w-3.5 h-3.5" />
+                              )}
+                              <span>Confirm This Hazard</span>
+                            </button>
+                          </div>
                         </div>
                       ))}
+                    </div>
+
+                    <div className="pt-1 flex items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setDismissedDuplicates(true)}
+                        className="text-[11px] font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline"
+                      >
+                        My report is a different event (dismiss warning)
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -796,7 +957,10 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
                   </p>
                 )
               }
-              onDismiss={() => setDuplicateCheckResult(null)}
+              onDismiss={() => {
+                setDuplicateCheckResult(null);
+                setDismissedDuplicates(true);
+              }}
               disclaimer={duplicateCheckResult.disclaimer}
             />
           )}
@@ -861,6 +1025,92 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
           )}
         </button>
       </div>
+
+      {/* Pre-submission duplicate interception modal */}
+      {showPreSubmitModal && duplicateCheckResult?.candidates?.[0] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#142533] rounded-2xl border border-amber-300 dark:border-amber-800 p-5 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-bold text-[#142B3B] dark:text-white">
+                  Similar Hazard Already Reported Nearby!
+                </h4>
+                <p className="text-xs text-[#667784] dark:text-slate-300 mt-0.5">
+                  We found an active report just{" "}
+                  <strong className="text-teal-600 dark:text-teal-400">
+                    {duplicateCheckResult.candidates[0].distance_meters < 1000
+                      ? `${duplicateCheckResult.candidates[0].distance_meters}m`
+                      : `${(duplicateCheckResult.candidates[0].distance_meters / 1000).toFixed(1)}km`}{" "}
+                    away
+                  </strong>{" "}
+                  matching your description.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">
+              <div className="font-bold text-[#142B3B] dark:text-white flex items-center justify-between">
+                <span>
+                  #{duplicateCheckResult.candidates[0].id} {duplicateCheckResult.candidates[0].category_display}
+                </span>
+                <span className="text-teal-600 dark:text-teal-400 font-mono text-[11px]">
+                  {duplicateCheckResult.candidates[0].distance_meters}m away
+                </span>
+              </div>
+              <p className="text-slate-600 dark:text-slate-300 line-clamp-2">
+                "{duplicateCheckResult.candidates[0].description}"
+              </p>
+              <p className="text-amber-700 dark:text-amber-400 text-[10px] italic pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                <strong>AI Match:</strong> {duplicateCheckResult.candidates[0].match_rationale}
+              </p>
+            </div>
+
+            <p className="text-[11px] text-[#667784] dark:text-slate-400 leading-relaxed">
+              Confirming the existing hazard immediately updates its freshness and confirms it for the community without creating duplicate pins on the map.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowPreSubmitModal(false)}
+                className="w-full sm:w-auto px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                Review My Report
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPreSubmitModal(false);
+                  setDismissedDuplicates(true);
+                  handleSubmit(null, true);
+                }}
+                className="w-full sm:w-auto px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                Submit as New Anyway
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPreSubmitModal(false);
+                  handleConfirmCandidate(duplicateCheckResult.candidates[0]);
+                }}
+                disabled={confirmingCandidateId !== null}
+                className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white bg-[#087F8C] hover:bg-[#0aa3b3] rounded-lg transition-all shadow-sm flex items-center justify-center gap-1.5"
+              >
+                {confirmingCandidateId === duplicateCheckResult.candidates[0].id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ThumbsUp className="w-3.5 h-3.5" />
+                )}
+                <span>Confirm Existing Hazard</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

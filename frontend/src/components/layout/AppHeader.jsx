@@ -22,6 +22,8 @@ import {
 import { RouteXLogo } from "../common/RouteXLogo";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
+import { NotificationBell } from "../notifications/NotificationBell";
+import { ToastNotification } from "../notifications/ToastNotification";
 
 export function AppHeader({ onReportClick }) {
   const navigate = useNavigate();
@@ -187,6 +189,9 @@ export function AppHeader({ onReportClick }) {
               <Moon className="w-4 h-4 text-slate-200" />
             )}
           </button>
+
+          {/* Notification Bell */}
+          <NotificationBell />
 
           {/* User Auth Controls */}
           {user ? (
@@ -468,6 +473,7 @@ export function AppHeader({ onReportClick }) {
           </div>
         </div>
       )}
+      <ToastNotification />
     </header>
   );
 }

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
+  RefreshControl,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,12 +20,14 @@ import {
   FileText,
   ShieldCheck,
   Send,
+  MapPin,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import {
   RouteXNotification,
   getNotificationHistory,
   markAllNotificationsRead,
+  markNotificationRead,
   clearAllNotifications,
   notifySafetyAdvisory,
   requestNotificationPermission,
@@ -34,17 +37,20 @@ interface NotificationsModalNativeProps {
   visible: boolean;
   onClose: () => void;
   onNotificationsChanged?: () => void;
+  onSelectHazardId?: (hazardId: number) => void;
 }
 
 export const NotificationsModalNative: React.FC<NotificationsModalNativeProps> = ({
   visible,
   onClose,
   onNotificationsChanged,
+  onSelectHazardId,
 }) => {
   const insets = useSafeAreaInsets();
   const { isDark, theme } = useTheme();
   const [notifications, setNotifications] = useState<RouteXNotification[]>([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
 
@@ -53,11 +59,33 @@ export const NotificationsModalNative: React.FC<NotificationsModalNativeProps> =
     setNotifications(list);
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadNotifications();
+    setRefreshing(false);
+    onNotificationsChanged?.();
+  };
+
   useEffect(() => {
     if (visible) {
       loadNotifications();
     }
   }, [visible]);
+
+  const handleNotificationPress = async (item: RouteXNotification) => {
+    if (!item.read) {
+      await markNotificationRead(item.id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
+      );
+      onNotificationsChanged?.();
+    }
+    const targetId = item.data?.targetHazardId;
+    if (targetId && onSelectHazardId) {
+      onClose();
+      onSelectHazardId(Number(targetId));
+    }
+  };
 
   const handleMarkAllRead = async () => {
     const updated = await markAllNotificationsRead();
@@ -179,7 +207,17 @@ export const NotificationsModalNative: React.FC<NotificationsModalNativeProps> =
           </View>
 
           {/* Notifications List */}
-          <ScrollView contentContainerStyle={styles.listContent}>
+          <ScrollView
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[theme.teal]}
+                tintColor={theme.teal}
+              />
+            }
+          >
             {notifications.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Bell size={40} color={theme.textMuted} style={{ marginBottom: 10, opacity: 0.6 }} />
@@ -198,8 +236,10 @@ export const NotificationsModalNative: React.FC<NotificationsModalNativeProps> =
               </View>
             ) : (
               notifications.map((item) => (
-                <View
+                <TouchableOpacity
                   key={item.id}
+                  activeOpacity={0.7}
+                  onPress={() => handleNotificationPress(item)}
                   style={[
                     styles.notificationItem,
                     {
@@ -218,10 +258,20 @@ export const NotificationsModalNative: React.FC<NotificationsModalNativeProps> =
                     {!item.read && <View style={[styles.unreadDot, { backgroundColor: theme.teal }]} />}
                   </View>
                   <Text style={[styles.itemBody, { color: theme.textPrimary }]}>{item.body}</Text>
-                  <Text style={[styles.itemDate, { color: theme.textMuted }]}>
-                    {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                    <Text style={[styles.itemDate, { color: theme.textMuted }]}>
+                      {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                    {item.data?.targetHazardId && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <MapPin size={11} color={theme.teal} />
+                        <Text style={{ fontSize: 10.5, fontWeight: '700', color: theme.teal }}>
+                          View on map
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
               ))
             )}
           </ScrollView>
