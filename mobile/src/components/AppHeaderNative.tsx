@@ -154,7 +154,7 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
         {/* Right Action Cluster */}
         <View style={styles.actionsRow}>
           {/* Notifications Bell */}
-          {onOpenNotifications && (
+          {/* {onOpenNotifications && (
             <TouchableOpacity
               onPress={onOpenNotifications}
               activeOpacity={0.7}
@@ -171,7 +171,7 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
                 </View>
               )}
             </TouchableOpacity>
-          )}
+          )} */}
 
           {/* Theme Toggle Button */}
           <TouchableOpacity

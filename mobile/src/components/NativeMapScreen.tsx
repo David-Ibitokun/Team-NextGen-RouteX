@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useCallback } from 'react';
+import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -19,6 +19,7 @@ import {
   List,
   Map as MapIcon,
   ChevronRight,
+  X,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { HazardItem } from '../constants/hazardTypes';
@@ -27,14 +28,18 @@ const BaseWebView = WebView as unknown as React.ComponentType<any>;
 
 interface NativeMapScreenProps {
   hazards: HazardItem[];
+  selectedHazard?: HazardItem | any | null;
   onSelectHazard?: (hazard: HazardItem) => void;
   userLocation?: { lat: number; lng: number } | null;
   radiusKm?: number;
+  onClearSelectedHazard?: () => void;
 }
 
 export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
   hazards,
+  selectedHazard,
   onSelectHazard,
+  onClearSelectedHazard,
   userLocation = null,
   radiusKm = 10,
 }) => {
@@ -45,19 +50,9 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
   const [displayMode, setDisplayMode] = useState<'map' | 'cards'>('map');
   const [isMapReady, setIsMapReady] = useState(false);
 
-  // Map tile URLs
-  // CartoDB Voyager for light mode, CartoDB Dark Matter for dark mode
-  const cartoApiKey =
-    process.env.EXPO_PUBLIC_CARTO_API_KEY ||
-    process.env.CARTO_API_KEY ||
-    'cb1_4net_1_ce38ac6484e32f062aca6913';
-  const keyParam = cartoApiKey ? `?key=${encodeURIComponent(cartoApiKey)}` : '';
-
-  const tileUrl = isDark
-    ? `https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${keyParam}`
-    : `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${keyParam}`;
-
-  const tileAttribution = '&copy; OpenStreetMap contributors &copy; CARTO';
+  // Standard OpenStreetMap / Esri tile URLs matching web app (HazardMap.jsx)
+  const tileUrl = 'https://tile.openstreetmap.de/{z}/{x}/{y}.png';
+  const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
   // Generate self-contained Leaflet HTML with embedded CSS and bundle
   const leafletHtml = useMemo(() => {
@@ -111,6 +106,7 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
       border: 3px solid #ffffff;
       box-shadow: 0 4px 12px rgba(0,0,0,0.35);
       cursor: pointer;
+      transition: transform 0.2s ease;
     }
     .custom-marker svg {
       width: 18px;
@@ -124,8 +120,10 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
       color: ${isDark ? '#F1F5F9' : '#142B3B'};
       border-radius: 14px;
       border: 1px solid ${isDark ? '#2E4C66' : '#DCE4E8'};
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
       padding: 6px;
+      min-width: 230px;
+      max-width: 290px;
     }
     .leaflet-popup-tip {
       background: ${isDark ? '#142533' : '#FFFFFF'};
@@ -142,21 +140,52 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
     }
     .popup-title {
       font-weight: 800;
-      font-size: 13px;
+      font-size: 13.5px;
       color: ${isDark ? '#FFFFFF' : '#142B3B'};
       margin-bottom: 4px;
-      line-height: 17px;
+      line-height: 18px;
     }
     .popup-desc {
-      font-size: 11px;
-      line-height: 15px;
+      font-size: 11.5px;
+      line-height: 16px;
       color: ${isDark ? '#94A3B8' : '#475569'};
-      margin-bottom: 6px;
+      margin-bottom: 8px;
+    }
+    .popup-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid ${isDark ? '#243A4F' : '#E2E8F0'};
+      padding-top: 6px;
+      margin-top: 4px;
     }
     .popup-coords {
       font-size: 10px;
       font-family: monospace;
       color: ${isDark ? '#64748B' : '#94A3B8'};
+    }
+    .popup-status {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: ${isDark ? 'rgba(8, 127, 140, 0.2)' : '#E0F2FE'};
+      color: #087F8C;
+    }
+    .popup-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      padding: 6px 10px;
+      margin-top: 8px;
+      background: #087F8C;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -173,7 +202,7 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
     };
 
     var mapInstance = null;
-    var markersLayer = null;
+    var markersById = {};
 
     function getCategorySvg(category) {
       switch (category) {
@@ -222,6 +251,7 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
 
         var items = ${hazardsJson};
         var bounds = [];
+        markersById = {};
 
         items.forEach(function(item) {
           var color = colors[item.category] || '#087F8C';
@@ -236,14 +266,25 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
           });
 
           var marker = L.marker([item.lat, item.lng], { icon: customIcon }).addTo(mapInstance);
+          markersById[item.id] = marker;
 
           var popupContent =
             '<div class="popup-badge" style="background-color: ' + color + '22; color: ' + color + ';">' + item.category.replace('_', ' ') + '</div>' +
             '<div class="popup-title">' + (item.location || 'Road Hazard') + '</div>' +
             '<div class="popup-desc">' + item.description + '</div>' +
-            '<div class="popup-coords">GPS: ' + item.lat.toFixed(4) + ', ' + item.lng.toFixed(4) + '</div>';
+            '<div class="popup-footer">' +
+              '<span class="popup-coords">GPS: ' + item.lat.toFixed(4) + ', ' + item.lng.toFixed(4) + '</span>' +
+              '<span class="popup-status">' + (item.status ? item.status.replace('_', ' ') : 'REPORTED') + '</span>' +
+            '</div>' +
+            '<button class="popup-btn" onclick="selectHazardFromPopup(' + item.id + ')">Inspect Details</button>';
 
           marker.bindPopup(popupContent);
+          marker.on('click', function() {
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'select', id: item.id }));
+            }
+          });
+
           bounds.push([item.lat, item.lng]);
         });
 
@@ -270,6 +311,34 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
 
           bounds.push([userLoc.lat, userLoc.lng]);
         }
+
+        window.selectHazardFromPopup = function(id) {
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'select', id: id }));
+          }
+        };
+
+        window.focusHazard = function(id, lat, lng) {
+          if (!mapInstance) return;
+          var targetLat = lat;
+          var targetLng = lng;
+          var marker = markersById[id];
+
+          if (marker) {
+            var pos = marker.getLatLng();
+            targetLat = pos.lat;
+            targetLng = pos.lng;
+          }
+
+          if (targetLat && targetLng) {
+            mapInstance.flyTo([Number(targetLat), Number(targetLng)], 16, { duration: 1.2 });
+            setTimeout(function() {
+              if (marker) {
+                marker.openPopup();
+              }
+            }, 600);
+          }
+        };
 
         if (bounds.length > 0) {
           mapInstance.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
@@ -319,6 +388,25 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
 </html>`;
   }, [hazards, isDark, tileUrl, userLocation, radiusKm]);
 
+  const [activeHazard, setActiveHazard] = useState<HazardItem | null>(null);
+
+  // Sync activeHazard with incoming selectedHazard
+  useEffect(() => {
+    if (selectedHazard) {
+      const match = hazards.find((h) => String(h.id) === String(selectedHazard.id)) || selectedHazard;
+      setActiveHazard(match);
+      setDisplayMode('map');
+      if (isMapReady && webViewRef.current) {
+        const id = selectedHazard.id;
+        const lat = Number(selectedHazard.latitude) || 6.5244;
+        const lng = Number(selectedHazard.longitude) || 3.3792;
+        webViewRef.current.injectJavaScript(
+          `window.focusHazard && window.focusHazard(${id}, ${lat}, ${lng}); true;`
+        );
+      }
+    }
+  }, [selectedHazard, hazards, isMapReady]);
+
   const handleZoomIn = () => {
     webViewRef.current?.injectJavaScript('window.mapZoomIn && window.mapZoomIn(); true;');
   };
@@ -337,19 +425,36 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
     setKey((prev) => prev + 1);
   };
 
-  const handleWebViewMessage = useCallback((event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'ready') {
-        setIsMapReady(true);
-      } else if (data.type === 'error') {
-        // Fallback gracefully
-        setLoadError(true);
+  const handleWebViewMessage = useCallback(
+    (event: any) => {
+      try {
+        const data = JSON.parse(event.nativeEvent.data);
+        if (data.type === 'ready') {
+          setIsMapReady(true);
+          // If a selectedHazard was passed before map was ready, focus now
+          if (selectedHazard) {
+            const id = selectedHazard.id;
+            const lat = Number(selectedHazard.latitude) || 6.5244;
+            const lng = Number(selectedHazard.longitude) || 3.3792;
+            webViewRef.current?.injectJavaScript(
+              `window.focusHazard && window.focusHazard(${id}, ${lat}, ${lng}); true;`
+            );
+          }
+        } else if (data.type === 'select') {
+          const match = hazards.find((h) => String(h.id) === String(data.id));
+          if (match) {
+            setActiveHazard(match);
+            if (onSelectHazard) onSelectHazard(match);
+          }
+        } else if (data.type === 'error') {
+          setLoadError(true);
+        }
+      } catch {
+        // Non-JSON message ignored
       }
-    } catch {
-      // Non-JSON message ignored
-    }
-  }, []);
+    },
+    [hazards, onSelectHazard, selectedHazard]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -530,6 +635,101 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Floating Details Card for Active / Selected Hazard */}
+          {activeHazard && (
+            <View
+              style={[
+                styles.floatingDetailCard,
+                {
+                  backgroundColor: theme.surfaceCard,
+                  borderColor: theme.border,
+                  shadowColor: theme.cardShadow,
+                },
+              ]}
+            >
+              <View style={styles.floatingHeader}>
+                <View style={styles.floatingTitleCol}>
+                  <View style={styles.floatingTagRow}>
+                    <View
+                      style={[
+                        styles.floatingBadge,
+                        {
+                          backgroundColor:
+                            activeHazard.status === 'resolved'
+                              ? 'rgba(39, 134, 91, 0.15)'
+                              : activeHazard.status === 'community_confirmed'
+                              ? 'rgba(8, 127, 140, 0.15)'
+                              : 'rgba(251, 191, 36, 0.15)',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.floatingBadgeText,
+                          {
+                            color:
+                              activeHazard.status === 'resolved'
+                                ? '#27865B'
+                                : activeHazard.status === 'community_confirmed'
+                                ? theme.teal
+                                : '#D97706',
+                          },
+                        ]}
+                      >
+                        {activeHazard.category?.replace('_', ' ')?.toUpperCase() || 'HAZARD'}
+                      </Text>
+                    </View>
+                    <Text style={[styles.floatingId, { color: theme.textMuted }]}>
+                      ID: #{activeHazard.id}
+                    </Text>
+                  </View>
+                  <Text style={[styles.floatingTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                    {activeHazard.location_name || activeHazard.location_label || 'Reported Hazard'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.floatingCloseBtn}
+                  onPress={() => {
+                    setActiveHazard(null);
+                    if (onClearSelectedHazard) onClearSelectedHazard();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <X size={16} color={theme.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.floatingDesc, { color: theme.textSecondary }]} numberOfLines={3}>
+                {activeHazard.description}
+              </Text>
+
+              <View style={[styles.floatingFooter, { borderTopColor: theme.borderSubtle }]}>
+                <View style={styles.floatingGpsRow}>
+                  <MapPin size={12} color={theme.teal} />
+                  <Text style={[styles.floatingGps, { color: theme.teal }]}>
+                    GPS: {Number(activeHazard.latitude || 6.5244).toFixed(4)}, {Number(activeHazard.longitude || 3.3792).toFixed(4)}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.floatingInspectBtn, { backgroundColor: theme.teal }]}
+                  onPress={() => {
+                    const id = activeHazard.id;
+                    const lat = Number(activeHazard.latitude) || 6.5244;
+                    const lng = Number(activeHazard.longitude) || 3.3792;
+                    webViewRef.current?.injectJavaScript(
+                      `window.focusHazard && window.focusHazard(${id}, ${lat}, ${lng}); true;`
+                    );
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.floatingInspectBtnText}>Focus Pin</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -743,5 +943,87 @@ const styles = StyleSheet.create({
   cardGps: {
     fontSize: 10,
     fontFamily: 'monospace',
+  },
+  floatingDetailCard: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    zIndex: 10,
+    gap: 8,
+  },
+  floatingHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  floatingTitleCol: {
+    flex: 1,
+    gap: 3,
+  },
+  floatingTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  floatingBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  floatingBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+  },
+  floatingId: {
+    fontSize: 10,
+    fontFamily: 'monospace',
+  },
+  floatingTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  floatingCloseBtn: {
+    padding: 4,
+  },
+  floatingDesc: {
+    fontSize: 11.5,
+    lineHeight: 16,
+  },
+  floatingFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+  },
+  floatingGpsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  floatingGps: {
+    fontSize: 10.5,
+    fontFamily: 'monospace',
+    fontWeight: '600',
+  },
+  floatingInspectBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 7,
+  },
+  floatingInspectBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

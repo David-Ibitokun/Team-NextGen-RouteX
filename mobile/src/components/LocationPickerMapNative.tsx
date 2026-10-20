@@ -24,15 +24,9 @@ export const LocationPickerMapNative: React.FC<LocationPickerMapNativeProps> = (
   const [locating, setLocating] = useState(false);
   const [locationStatus, setLocationStatus] = useState<string>('');
 
-  const cartoApiKey =
-    process.env.EXPO_PUBLIC_CARTO_API_KEY ||
-    process.env.CARTO_API_KEY ||
-    'cb1_4net_1_ce38ac6484e32f062aca6913';
-  const keyParam = cartoApiKey ? `?key=${encodeURIComponent(cartoApiKey)}` : '';
-
-  const tileUrl = isDark
-    ? `https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${keyParam}`
-    : `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${keyParam}`;
+  // Standard OpenStreetMap tile URL matching web app (LocationPickerMap.jsx & HazardMap.jsx)
+  const tileUrl = 'https://tile.openstreetmap.de/{z}/{x}/{y}.png';
+  const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
   const bgMap = isDark ? '#0B161E' : '#F7F9FA';
 
@@ -91,12 +85,18 @@ export const LocationPickerMapNative: React.FC<LocationPickerMapNativeProps> = (
 
     var map = L.map('map', {
       zoomControl: false,
-      attributionControl: false
+      attributionControl: true
     }).setView([currentLat, currentLng], 14);
 
     L.tileLayer('${tileUrl}', {
-      maxZoom: 19
+      maxZoom: 19,
+      attribution: '${tileAttribution}'
     }).addTo(map);
+
+    // Invalidate size on load to ensure tiles render immediately without grey patches
+    setTimeout(function() {
+      if (map) map.invalidateSize();
+    }, 200);
 
     var pickerIcon = L.divIcon({
       className: '',

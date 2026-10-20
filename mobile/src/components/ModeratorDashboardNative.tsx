@@ -31,18 +31,28 @@ import {
   HelpCircle,
   Search,
   Maximize2,
+  Sparkles,
+  ArrowUpDown,
+  ChevronDown,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { HazardItem } from '../constants/hazardTypes';
 import { moderationService } from '../services/apiClient';
+import {
+  aiService,
+  SummarizeReportResult,
+  CheckDuplicatesResult,
+} from '../services/aiService';
 import { PaginationControlsNative } from './PaginationControlsNative';
 import { ImageViewerModalNative } from './ImageViewerModalNative';
+import { AISuggestionCardNative } from './AISuggestionCardNative';
 
 interface ModeratorDashboardNativeProps {
   hazards: HazardItem[];
   onOpenReport: () => void;
-  onOpenMap: () => void;
+  onOpenMap: (hazard?: any) => void;
+  onSelectHazard?: (hazard: any) => void;
   onOpenAuth?: () => void;
 }
 
@@ -50,6 +60,7 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
   hazards,
   onOpenReport,
   onOpenMap,
+  onSelectHazard,
   onOpenAuth,
 }) => {
   const { isDark, theme } = useTheme();
@@ -67,6 +78,7 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [ordering, setOrdering] = useState('-flags_count');
+  const [orderingModalOpen, setOrderingModalOpen] = useState(false);
   const [stats, setStats] = useState<any>(null);
 
   // Moderation Audit History State
@@ -82,6 +94,17 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
   const [selectedPreviewImage, setSelectedPreviewImage] = useState<{ url: string; title: string; subtitle: string } | null>(null);
+
+  // AI Assistant States for Moderator
+  const [aiSummary, setAiSummary] = useState<SummarizeReportResult | null>(null);
+  const [loadingAiSummary, setLoadingAiSummary] = useState(false);
+  const [aiDuplicates, setAiDuplicates] = useState<CheckDuplicatesResult | null>(null);
+  const [loadingAiDuplicates, setLoadingAiDuplicates] = useState(false);
+  const [aiModalNotice, setAiModalNotice] = useState<string | null>(null);
+
+  // Inline AI card state for triage cards (summary on card directly)
+  const [cardAiSummaries, setCardAiSummaries] = useState<Record<number, SummarizeReportResult>>({});
+  const [loadingCardSummary, setLoadingCardSummary] = useState<number | null>(null);
 
   const loadQueueData = useCallback(async () => {
     setLoading(true);
@@ -154,7 +177,67 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
     setActionReason('');
     setActionError('');
     setActionSuccess('');
+    setAiSummary(null);
+    setAiDuplicates(null);
+    setAiModalNotice(null);
     setActionModalOpen(true);
+  };
+
+  const handleFetchAiSummary = async (reportId: number) => {
+    try {
+      setLoadingAiSummary(true);
+      setAiModalNotice(null);
+      const res = await aiService.summarizeReport(reportId);
+      setAiSummary(res);
+    } catch (err: any) {
+      const msg = err?.data?.error || err?.message || 'AI incident summarizer is temporarily unavailable.';
+      setAiModalNotice(msg);
+    } finally {
+      setLoadingAiSummary(false);
+    }
+  };
+
+  const handleFetchAiDuplicates = async (report: any) => {
+    try {
+      setLoadingAiDuplicates(true);
+      setAiModalNotice(null);
+      const res = await aiService.checkDuplicates({
+        latitude: report.latitude,
+        longitude: report.longitude,
+        description: report.description,
+        category: report.category,
+        radius_km: 1.0,
+        exclude_report_id: report.id,
+      });
+      setAiDuplicates(res);
+    } catch (err: any) {
+      const msg = err?.data?.error || err?.message || 'Duplicate scanner is temporarily unavailable.';
+      setAiModalNotice(msg);
+    } finally {
+      setLoadingAiDuplicates(false);
+    }
+  };
+
+  const handleFetchInlineSummary = async (reportId: number) => {
+    if (cardAiSummaries[reportId]) {
+      // Toggle off
+      setCardAiSummaries((prev) => {
+        const copy = { ...prev };
+        delete copy[reportId];
+        return copy;
+      });
+      return;
+    }
+
+    try {
+      setLoadingCardSummary(reportId);
+      const res = await aiService.summarizeReport(reportId);
+      setCardAiSummaries((prev) => ({ ...prev, [reportId]: res }));
+    } catch (err: any) {
+      Alert.alert('AI Summarizer', err?.data?.error || err?.message || 'AI incident summarizer is temporarily unavailable.');
+    } finally {
+      setLoadingCardSummary(null);
+    }
   };
 
   const handleSubmitAction = async () => {
@@ -417,31 +500,57 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
             </View>
           </View>
 
-          {/* Search bar */}
-          <View style={[styles.searchInputWrapper, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
-            <Search size={14} color={theme.textMuted} />
-            <TextInput
-              style={[styles.searchInputText, { color: theme.textPrimary }]}
-              placeholder="Search landmark, street, or description..."
-              placeholderTextColor={theme.textMuted}
-              value={searchQuery}
-              onChangeText={(t) => {
-                setSearchQuery(t);
-                setPage(1);
-              }}
-              returnKeyType="search"
-            />
-            {searchQuery ? (
-              <TouchableOpacity
-                onPress={() => {
-                  setSearchQuery('');
+          {/* Search bar & Sort Ordering Row */}
+          <View style={styles.searchAndSortRow}>
+            <View style={[styles.searchInputWrapper, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border, flex: 1 }]}>
+              <Search size={14} color={theme.textMuted} />
+              <TextInput
+                style={[styles.searchInputText, { color: theme.textPrimary }]}
+                placeholder="Search landmark, street, or description..."
+                placeholderTextColor={theme.textMuted}
+                value={searchQuery}
+                onChangeText={(t) => {
+                  setSearchQuery(t);
                   setPage(1);
                 }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <X size={14} color={theme.textMuted} />
-              </TouchableOpacity>
-            ) : null}
+                returnKeyType="search"
+              />
+              {searchQuery ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSearchQuery('');
+                    setPage(1);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={14} color={theme.textMuted} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* Ordering Selector Trigger */}
+            <TouchableOpacity
+              style={[
+                styles.orderingSelectBtn,
+                { backgroundColor: theme.surfaceSubtle, borderColor: theme.border },
+              ]}
+              onPress={() => setOrderingModalOpen(true)}
+              activeOpacity={0.7}
+              accessibilityLabel="Change sort order"
+            >
+              <Text style={[styles.orderingSelectText, { color: theme.textPrimary }]} numberOfLines={1}>
+                {ordering === '-flags_count'
+                  ? 'Most Flagged First'
+                  : ordering === '-created_at'
+                  ? 'Newest First'
+                  : ordering === 'created_at'
+                  ? 'Oldest First'
+                  : ordering === '-confirmations_count'
+                  ? 'Most Confirmed'
+                  : 'Sort'}
+              </Text>
+              <ArrowUpDown size={13} color={theme.teal} />
+            </TouchableOpacity>
           </View>
 
           {/* Quick Filter: All vs Flagged Only */}
@@ -688,38 +797,97 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
                 </TouchableOpacity>
               )}
 
-              {/* Action Buttons */}
-              <View style={[styles.actionsRow, { borderTopColor: theme.borderSubtle }]}>
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: '#16A34A' }]}
-                  onPress={() => handleOpenActionModal(report, 'confirm')}
-                  activeOpacity={0.8}
-                >
-                  <Check size={13} color="#FFFFFF" />
-                  <Text style={styles.actionBtnText}>Confirm</Text>
-                </TouchableOpacity>
+              {/* Inline AI Summary Card if requested */}
+              {cardAiSummaries[report.id] && (
+                <View style={{ marginTop: 8 }}>
+                  <AISuggestionCardNative
+                    title={`Incident Summary (${cardAiSummaries[report.id].urgency_level.toUpperCase()})`}
+                    subtitle={cardAiSummaries[report.id].category_display}
+                    content={cardAiSummaries[report.id].summary}
+                    onDismiss={() => handleFetchInlineSummary(report.id)}
+                    disclaimer={cardAiSummaries[report.id].disclaimer}
+                  />
+                </View>
+              )}
 
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: '#2563EB' }]}
-                  onPress={() => handleOpenActionModal(report, 'resolve')}
-                  activeOpacity={0.8}
-                >
-                  <CheckCircle2 size={13} color="#FFFFFF" />
-                  <Text style={styles.actionBtnText}>Resolve</Text>
-                </TouchableOpacity>
+              {/* Action Buttons - 2 Clean Responsive Rows */}
+              <View style={[styles.actionsContainer, { borderTopColor: theme.borderSubtle }]}>
+                {/* Top Row: AI Summary and View Map */}
+                <View style={styles.actionsTopRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.actionBtnWide,
+                      {
+                        backgroundColor: cardAiSummaries[report.id]
+                          ? theme.teal
+                          : isDark
+                          ? 'rgba(8, 127, 140, 0.2)'
+                          : '#E0F2FE',
+                        borderColor: theme.teal,
+                      },
+                    ]}
+                    onPress={() => handleFetchInlineSummary(report.id)}
+                    disabled={loadingCardSummary === report.id}
+                    activeOpacity={0.8}
+                  >
+                    {loadingCardSummary === report.id ? (
+                      <ActivityIndicator size="small" color={cardAiSummaries[report.id] ? '#FFFFFF' : theme.teal} />
+                    ) : (
+                      <Sparkles size={13} color={cardAiSummaries[report.id] ? '#FFFFFF' : theme.teal} />
+                    )}
+                    <Text
+                      style={[
+                        styles.actionBtnWideText,
+                        { color: cardAiSummaries[report.id] ? '#FFFFFF' : theme.teal },
+                      ]}
+                    >
+                      AI Summary
+                    </Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: '#DC2626' }]}
-                  onPress={() => handleOpenActionModal(report, 'review')}
-                  activeOpacity={0.8}
-                >
-                  <AlertTriangle size={13} color="#FFFFFF" />
-                  <Text style={styles.actionBtnText}>Flag/Review</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.mapInspectBtn, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}
+                    onPress={() => {
+                      if (onSelectHazard) onSelectHazard(report);
+                      onOpenMap(report);
+                    }}
+                    activeOpacity={0.7}
+                    accessibilityLabel="View hazard on map"
+                  >
+                    <ExternalLink size={13} color={theme.teal} />
+                    <Text style={[styles.mapInspectBtnText, { color: theme.teal }]}>View Map</Text>
+                  </TouchableOpacity>
+                </View>
 
-                <TouchableOpacity style={styles.mapLinkBtn} onPress={onOpenMap} activeOpacity={0.7}>
-                  <ExternalLink size={14} color={theme.teal} />
-                </TouchableOpacity>
+                {/* Bottom Row: Confirm, Resolve, Flag/Review */}
+                <View style={styles.actionsBottomRow}>
+                  <TouchableOpacity
+                    style={[styles.actionBtnTriage, { backgroundColor: '#16A34A' }]}
+                    onPress={() => handleOpenActionModal(report, 'confirm')}
+                    activeOpacity={0.8}
+                  >
+                    <Check size={13} color="#FFFFFF" />
+                    <Text style={styles.actionBtnText}>Confirm</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionBtnTriage, { backgroundColor: '#2563EB' }]}
+                    onPress={() => handleOpenActionModal(report, 'resolve')}
+                    activeOpacity={0.8}
+                  >
+                    <CheckCircle2 size={13} color="#FFFFFF" />
+                    <Text style={styles.actionBtnText}>Resolve</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionBtnTriage, { backgroundColor: '#DC2626' }]}
+                    onPress={() => handleOpenActionModal(report, 'review')}
+                    activeOpacity={0.8}
+                  >
+                    <AlertTriangle size={13} color="#FFFFFF" />
+                    <Text style={styles.actionBtnText}>Flag/Review</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           ))
@@ -899,9 +1067,129 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
                 <Text style={[styles.targetLabel, { color: theme.textSecondary }]}>
                   Corridor Target:{' '}
                   <Text style={{ fontWeight: '700', color: theme.textPrimary }}>
-                    {selectedReport?.location_name || 'Selected Report'}
+                    {selectedReport?.location_name || selectedReport?.location_label || 'Selected Report'}
                   </Text>
                 </Text>
+
+                {/* AI Assistant Moderator Tools */}
+                <View style={styles.aiModalToolRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.aiModalToolBtn,
+                      {
+                        backgroundColor: isDark ? 'rgba(8, 127, 140, 0.15)' : '#F0FDFA',
+                        borderColor: isDark ? 'rgba(8, 127, 140, 0.4)' : '#99F6E4',
+                      },
+                    ]}
+                    onPress={() => selectedReport?.id && handleFetchAiSummary(selectedReport.id)}
+                    disabled={loadingAiSummary}
+                    activeOpacity={0.7}
+                  >
+                    {loadingAiSummary ? (
+                      <ActivityIndicator size="small" color={theme.teal} />
+                    ) : (
+                      <Sparkles size={12} color={theme.teal} />
+                    )}
+                    <Text style={[styles.aiModalToolBtnText, { color: theme.teal }]}>
+                      AI Summary
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.aiModalToolBtn,
+                      {
+                        backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7',
+                        borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#FDE68A',
+                      },
+                    ]}
+                    onPress={() => selectedReport && handleFetchAiDuplicates(selectedReport)}
+                    disabled={loadingAiDuplicates}
+                    activeOpacity={0.7}
+                  >
+                    {loadingAiDuplicates ? (
+                      <ActivityIndicator size="small" color="#D97706" />
+                    ) : (
+                      <Sparkles size={12} color="#D97706" />
+                    )}
+                    <Text style={[styles.aiModalToolBtnText, { color: isDark ? '#FCD34D' : '#B45309' }]}>
+                      Scan Duplicates
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {aiSummary && (
+                  <AISuggestionCardNative
+                    title={`Incident Summary (Urgency: ${aiSummary.urgency_level.toUpperCase()})`}
+                    subtitle={aiSummary.category_display}
+                    content={aiSummary.summary}
+                    onDismiss={() => setAiSummary(null)}
+                    disclaimer={aiSummary.disclaimer}
+                  />
+                )}
+
+                {aiDuplicates && (
+                  <AISuggestionCardNative
+                    title={
+                      aiDuplicates.is_possible_duplicate
+                        ? 'Potential Duplicate Detected'
+                        : 'Deduplication Clear'
+                    }
+                    subtitle={`${aiDuplicates.nearby_count} active reports nearby`}
+                    content={
+                      <View style={{ gap: 6 }}>
+                        <Text style={{ fontSize: 11.5, fontWeight: '700', color: isDark ? '#FCD34D' : '#92400E' }}>
+                          {aiDuplicates.analysis}
+                        </Text>
+                        {aiDuplicates.candidates.map((cand) => (
+                          <View
+                            key={cand.id}
+                            style={{
+                              padding: 6,
+                              borderRadius: 6,
+                              backgroundColor: isDark ? '#142533' : '#F8FAFC',
+                              borderWidth: 1,
+                              borderColor: theme.border,
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <Text style={{ fontSize: 10.5, fontWeight: '600', color: theme.textPrimary }}>
+                              #{cand.id} {cand.category_display}
+                            </Text>
+                            <Text style={{ fontSize: 10, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', color: theme.teal }}>
+                              {cand.distance_meters}m
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    }
+                    onDismiss={() => setAiDuplicates(null)}
+                    disclaimer={aiDuplicates.disclaimer}
+                  />
+                )}
+
+                {aiModalNotice && (
+                  <View
+                    style={{
+                      padding: 8,
+                      borderRadius: 8,
+                      backgroundColor: isDark ? '#3D2808' : '#FEF3C7',
+                      borderWidth: 1,
+                      borderColor: '#F59E0B',
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, color: isDark ? '#FCD34D' : '#92400E', flex: 1 }}>
+                      {aiModalNotice}
+                    </Text>
+                    <TouchableOpacity onPress={() => setAiModalNotice(null)} style={{ padding: 2 }}>
+                      <X size={12} color={isDark ? '#FCD34D' : '#92400E'} />
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 <View style={styles.inputGroup}>
                   <Text style={[styles.inputLabel, { color: theme.textPrimary }]}>
@@ -951,6 +1239,81 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
             </View>
           </KeyboardAvoidingView>
         </View>
+      </Modal>
+
+      {/* Ordering Selection Modal */}
+      <Modal
+        visible={orderingModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOrderingModalOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.orderingModalOverlay}
+          activeOpacity={1}
+          onPress={() => setOrderingModalOpen(false)}
+        >
+          <View
+            style={[
+              styles.orderingModalCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={[styles.orderingModalHeader, { borderBottomColor: theme.borderSubtle }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <ArrowUpDown size={15} color={theme.teal} />
+                <Text style={[styles.orderingModalTitle, { color: theme.textPrimary }]}>Sort Triage Queue</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setOrderingModalOpen(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <X size={16} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {[
+              { id: '-flags_count', label: 'Most Flagged First' },
+              { id: '-created_at', label: 'Newest First' },
+              { id: 'created_at', label: 'Oldest First' },
+              { id: '-confirmations_count', label: 'Most Confirmed' },
+            ].map((opt) => {
+              const isSelected = ordering === opt.id;
+              return (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={[
+                    styles.orderingOptionRow,
+                    {
+                      backgroundColor: isSelected
+                        ? isDark
+                          ? 'rgba(8, 127, 140, 0.2)'
+                          : '#E0F2FE'
+                        : theme.surfaceSubtle,
+                      borderColor: isSelected ? theme.teal : theme.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    setOrdering(opt.id);
+                    setPage(1);
+                    setOrderingModalOpen(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.orderingOptionText,
+                      { color: isSelected ? theme.teal : theme.textPrimary },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                  {isSelected && <Check size={16} color={theme.teal} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* Fullscreen Photo Modal */}
@@ -1338,6 +1701,120 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  searchAndSortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  orderingSelectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    minWidth: 130,
+    justifyContent: 'space-between',
+  },
+  orderingSelectText: {
+    fontSize: 11,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  orderingModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  orderingModalCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+  },
+  orderingModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+  },
+  orderingModalTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  orderingOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  orderingOptionText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  actionsContainer: {
+    borderTopWidth: 1,
+    paddingTop: 10,
+    marginTop: 4,
+    gap: 8,
+  },
+  actionsTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionBtnWide: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  actionBtnWideText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  mapInspectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  mapInspectBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  actionsBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionBtnTriage: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1563,6 +2040,27 @@ const styles = StyleSheet.create({
   primaryActionText: {
     color: '#FFFFFF',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  aiModalToolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 4,
+  },
+  aiModalToolBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  aiModalToolBtnText: {
+    fontSize: 11,
     fontWeight: '700',
   },
 });
