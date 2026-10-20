@@ -26,7 +26,6 @@ import { hazardService } from "../../services/apiClient";
 import { aiService } from "../../services/aiService";
 import { AISuggestionCard } from "../ai/AISuggestionCard";
 import { convertToWebP, formatFileSize } from "../../utils/imageOptimizer";
-import { useAuth } from "../../context/AuthContext";
 
 const CATEGORY_ICONS = {
   flooding: Droplets,
