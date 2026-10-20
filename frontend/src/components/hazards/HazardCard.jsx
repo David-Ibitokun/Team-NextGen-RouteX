@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ThumbsUp, Maximize2 } from "lucide-react";
+import { ThumbsUp, Maximize2, Navigation } from "lucide-react";
 import { CategoryBadge } from "./CategoryBadge";
 import { FreshnessBadge } from "./FreshnessBadge";
 import { getStatusBadgeStyle } from "../../utils/hazardConstants";
@@ -21,7 +21,15 @@ export function HazardCard({ hazard, isSelected = false, onSelect }) {
         }`}
       >
         <div className="flex items-center justify-between gap-2 mb-2">
-          <CategoryBadge category={hazard.category} />
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <CategoryBadge category={hazard.category} />
+            {hazard.distance_km != null && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#087F8C] bg-[#E6F4F6] dark:bg-[#087F8C]/20 dark:text-teal-300 px-2 py-0.5 rounded-full border border-teal-200 dark:border-teal-800">
+                <Navigation className="w-2.5 h-2.5 fill-[#087F8C] dark:fill-teal-300" />
+                {hazard.distance_km < 1 ? `${Math.round(hazard.distance_km * 1000)} m` : `${hazard.distance_km.toFixed(1)} km`}
+              </span>
+            )}
+          </div>
           <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${statusStyle}`}>
             {hazard.status_display || hazard.status}
           </span>

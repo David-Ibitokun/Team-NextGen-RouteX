@@ -79,6 +79,9 @@ export async function fetchHazards(params: {
   category?: string;
   status?: string;
   bbox?: string;
+  lat?: number;
+  lng?: number;
+  radius_km?: number;
   page_size?: number;
 } = {}): Promise<HazardItem[]> {
   const queryParts: string[] = [];
@@ -90,6 +93,11 @@ export async function fetchHazards(params: {
   }
   if (params.bbox) {
     queryParts.push(`bbox=${encodeURIComponent(params.bbox)}`);
+  }
+  if (params.lat != null && params.lng != null) {
+    queryParts.push(`lat=${encodeURIComponent(params.lat)}`);
+    queryParts.push(`lng=${encodeURIComponent(params.lng)}`);
+    queryParts.push(`radius_km=${encodeURIComponent(params.radius_km ?? 10)}`);
   }
   const pageSize = params.page_size ?? 100;
   queryParts.push(`page_size=${pageSize}`);

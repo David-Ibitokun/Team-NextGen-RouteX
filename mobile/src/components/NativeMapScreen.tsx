@@ -28,9 +28,16 @@ const BaseWebView = WebView as unknown as React.ComponentType<any>;
 interface NativeMapScreenProps {
   hazards: HazardItem[];
   onSelectHazard?: (hazard: HazardItem) => void;
+  userLocation?: { lat: number; lng: number } | null;
+  radiusKm?: number;
 }
 
-export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({ hazards, onSelectHazard }) => {
+export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({
+  hazards,
+  onSelectHazard,
+  userLocation = null,
+  radiusKm = 10,
+}) => {
   const { isDark, theme } = useTheme();
   const webViewRef = useRef<any>(null);
   const [loadError, setLoadError] = useState(false);
@@ -54,6 +61,8 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({ hazards, onSel
 
   // Generate self-contained Leaflet HTML with embedded CSS and bundle
   const leafletHtml = useMemo(() => {
+    const userLocationJson = JSON.stringify(userLocation || null);
+    const radiusMeters = (radiusKm || 10) * 1000;
     const hazardsJson = JSON.stringify(
       hazards.map((h) => ({
         id: h.id,
@@ -238,8 +247,34 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({ hazards, onSel
           bounds.push([item.lat, item.lng]);
         });
 
+        var userLoc = ${userLocationJson};
+        if (userLoc && userLoc.lat != null && userLoc.lng != null) {
+          var userIcon = L.divIcon({
+            className: 'user-marker',
+            html: '<div style="width: 20px; height: 20px; border-radius: 50%; background: #087F8C; border: 3px solid #ffffff; box-shadow: 0 0 0 2px #087F8C, 0 4px 10px rgba(8,127,140,0.5);"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10],
+          });
+          L.marker([userLoc.lat, userLoc.lng], { icon: userIcon })
+            .bindPopup('<div style="font-weight: 700; font-size: 12px; margin-bottom: 2px;">Your Location</div><div style="font-size: 10px; color: #64748B;">Showing hazards within ${radiusKm || 10} km</div>')
+            .addTo(mapInstance);
+
+          L.circle([userLoc.lat, userLoc.lng], {
+            radius: ${radiusMeters},
+            color: '#087F8C',
+            fillColor: '#087F8C',
+            fillOpacity: 0.08,
+            weight: 2,
+            dashArray: '6, 6'
+          }).addTo(mapInstance);
+
+          bounds.push([userLoc.lat, userLoc.lng]);
+        }
+
         if (bounds.length > 0) {
           mapInstance.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+        } else if (userLoc && userLoc.lat != null && userLoc.lng != null) {
+          mapInstance.setView([userLoc.lat, userLoc.lng], 12);
         }
 
         // Force map size invalidation after WebView measures
@@ -282,7 +317,7 @@ export const NativeMapScreen: React.FC<NativeMapScreenProps> = ({ hazards, onSel
   </script>
 </body>
 </html>`;
-  }, [hazards, isDark, tileUrl]);
+  }, [hazards, isDark, tileUrl, userLocation, radiusKm]);
 
   const handleZoomIn = () => {
     webViewRef.current?.injectJavaScript('window.mapZoomIn && window.mapZoomIn(); true;');

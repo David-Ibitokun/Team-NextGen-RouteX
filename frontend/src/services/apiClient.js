@@ -152,7 +152,7 @@ export const authService = {
 export const hazardService = {
   /**
    * Fetch paginated list of hazards with optional filtering
-   * @param {Object} params - { category, status, demo, bbox, min_lat, max_lat, min_lng, max_lng }
+   * @param {Object} params - { category, status, demo, bbox, min_lat, max_lat, min_lng, max_lng, lat, lng, radius_km }
    */
   async getHazards(params = {}) {
     const response = await apiClient.get("/hazards/", { params });

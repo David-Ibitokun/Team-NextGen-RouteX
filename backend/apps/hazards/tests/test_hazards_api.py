@@ -260,3 +260,65 @@ class HazardReportTests(TestCase):
         # Duplicate pending flag rejected
         dup_res = self.client.post(url, payload, format="json")
         self.assertEqual(dup_res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_hazards_near_me_within_radius(self):
+        """Proximity filter returns reports within radius with distance_km attached."""
+        url = reverse("hazard-list")
+        # User is at Marina (same location as self.report)
+        response = self.client.get(url, {
+            "lat": "6.453100",
+            "lng": "3.395800",
+            "radius_km": "10",
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data["results"]
+        # Only self.report is within 10 km; self.demo_report is ~16.7 km away in Ikeja
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["id"], self.report.id)
+        self.assertIn("distance_km", results[0])
+        self.assertAlmostEqual(results[0]["distance_km"], 0.0, places=1)
+
+    def test_hazards_near_me_sorted_by_distance(self):
+        """Proximity filter orders results ascending by distance from user."""
+        url = reverse("hazard-list")
+        # User is at Marina, radius is 25 km so both reports are included
+        response = self.client.get(url, {
+            "lat": "6.453100",
+            "lng": "3.395800",
+            "radius_km": "25",
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data["results"]
+        self.assertEqual(len(results), 2)
+        # First result is self.report (~0 km)
+        self.assertEqual(results[0]["id"], self.report.id)
+        # Second result is self.demo_report (~16.7 km)
+        self.assertEqual(results[1]["id"], self.demo_report.id)
+        self.assertLess(results[0]["distance_km"], results[1]["distance_km"])
+
+    def test_hazards_near_me_invalid_coordinates(self):
+        """Invalid coordinate query parameters return 400 Bad Request."""
+        url = reverse("hazard-list")
+        # Invalid latitude > 90
+        res_lat = self.client.get(url, {"lat": "95.0", "lng": "3.3958"})
+        self.assertEqual(res_lat.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Non-numeric coordinate
+        res_bad = self.client.get(url, {"lat": "abc", "lng": "3.3958"})
+        self.assertEqual(res_bad.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_hazards_near_me_combined_with_category_filter(self):
+        """Proximity filter works seamlessly with category filtering."""
+        url = reverse("hazard-list")
+        # Marina has flooding, Ikeja has pothole. Requesting pothole within 25 km should only return Ikeja
+        response = self.client.get(url, {
+            "lat": "6.453100",
+            "lng": "3.395800",
+            "radius_km": "25",
+            "category": "pothole",
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["id"], self.demo_report.id)
+        self.assertEqual(results[0]["category"], "pothole")

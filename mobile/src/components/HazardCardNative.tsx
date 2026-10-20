@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { MapPin, Clock, ThumbsUp, Droplets, CircleDot, AlertTriangle, TreePine, HelpCircle, Maximize2 } from 'lucide-react-native';
+import { MapPin, Clock, ThumbsUp, Droplets, CircleDot, AlertTriangle, TreePine, HelpCircle, Maximize2, Navigation } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { HazardItem, getCategoryConfig, getStatusColor } from '../constants/hazardTypes';
 import { ImageViewerModalNative } from './ImageViewerModalNative';
@@ -61,19 +61,30 @@ export const HazardCardNative: React.FC<HazardCardNativeProps> = ({ hazard, onPr
       >
         {/* Category Strip & Status Badge */}
         <View style={styles.headerRow}>
-          <View
-            style={[
-              styles.categoryBadge,
-              {
-                backgroundColor: isDark ? categoryConfig.darkBg : categoryConfig.lightBg,
-                borderColor: categoryConfig.color,
-              },
-            ]}
-          >
-            {renderCategoryIcon()}
-            <Text style={[styles.categoryText, { color: isDark ? '#E2E8F0' : '#142B3B' }]}>
-              {categoryConfig.label}
-            </Text>
+          <View style={styles.headerLeftCluster}>
+            <View
+              style={[
+                styles.categoryBadge,
+                {
+                  backgroundColor: isDark ? categoryConfig.darkBg : categoryConfig.lightBg,
+                  borderColor: categoryConfig.color,
+                },
+              ]}
+            >
+              {renderCategoryIcon()}
+              <Text style={[styles.categoryText, { color: isDark ? '#E2E8F0' : '#142B3B' }]}>
+                {categoryConfig.label}
+              </Text>
+            </View>
+
+            {hazard.distance_km != null && (
+              <View style={[styles.distanceBadge, { backgroundColor: isDark ? '#0C2E42' : '#E0F2FE', borderColor: theme.teal }]}>
+                <Navigation size={10} color={theme.teal} />
+                <Text style={[styles.distanceText, { color: theme.teal }]}>
+                  {hazard.distance_km < 1 ? `${Math.round(hazard.distance_km * 1000)}m` : `${hazard.distance_km.toFixed(1)} km`}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={[styles.statusBadge, { backgroundColor: statusColors.bg, borderColor: statusColors.border }]}>
@@ -172,6 +183,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  headerLeftCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    flex: 1,
+    marginRight: 6,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  distanceText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   categoryBadge: {
     flexDirection: 'row',

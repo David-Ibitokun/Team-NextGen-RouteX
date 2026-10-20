@@ -9,6 +9,7 @@ class HazardReportSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     photo_url = serializers.SerializerMethodField()
     freshness = serializers.SerializerMethodField()
+    distance_km = serializers.FloatField(read_only=True, required=False, allow_null=True, default=None)
 
     def to_internal_value(self, data):
         if isinstance(data, dict):
@@ -61,6 +62,7 @@ class HazardReportSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "freshness",
+            "distance_km",
         ]
         read_only_fields = [
             "id",
@@ -74,7 +76,15 @@ class HazardReportSerializer(serializers.ModelSerializer):
             "updated_at",
             "photo_url",
             "freshness",
+            "distance_km",
         ]
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        distance = getattr(instance, "distance_km", None)
+        if distance is not None:
+            ret["distance_km"] = float(distance)
+        return ret
 
     def get_photo_url(self, obj):
         if obj.photo:

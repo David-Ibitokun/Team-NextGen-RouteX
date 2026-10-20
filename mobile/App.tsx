@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import * as Location from 'expo-location';
 import {
   StyleSheet,
   View,
@@ -49,6 +50,11 @@ function RouteXNativeMain() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
+  // Near Me & Geolocation State
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [nearMeActive, setNearMeActive] = useState(false);
+  const [locating, setLocating] = useState(false);
+
   // Modals
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -68,11 +74,53 @@ function RouteXNativeMain() {
     refreshNotificationsCount();
   }, [refreshNotificationsCount]);
 
+  const handleToggleNearMe = async () => {
+    if (nearMeActive) {
+      setNearMeActive(false);
+      setUserLocation(null);
+      return;
+    }
+
+    try {
+      setLocating(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocating(false);
+        Alert.alert(
+          'Location Permission Required',
+          'RouteX needs access to your location to find road hazards within 10 km. Please grant location permission in your device settings.'
+        );
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      setUserLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+      setNearMeActive(true);
+    } catch (err: any) {
+      console.warn('[RouteX] Geolocation error:', err?.message || err);
+      Alert.alert(
+        'Location Unavailable',
+        'Unable to detect your device coordinates. Please ensure GPS/location services are turned on.'
+      );
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const loadData = useCallback(async () => {
     try {
       const items = await fetchHazards({
         category: selectedCategory,
         status: selectedStatus,
+        lat: nearMeActive && userLocation ? userLocation.lat : undefined,
+        lng: nearMeActive && userLocation ? userLocation.lng : undefined,
+        radius_km: nearMeActive ? 10 : undefined,
       });
       setHazards(items);
     } catch {
@@ -81,13 +129,17 @@ function RouteXNativeMain() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCategory, selectedStatus]);
+  }, [selectedCategory, selectedStatus, nearMeActive, userLocation]);
 
   useEffect(() => {
     let isMounted = true;
+    setLoading(true);
     fetchHazards({
       category: selectedCategory,
       status: selectedStatus,
+      lat: nearMeActive && userLocation ? userLocation.lat : undefined,
+      lng: nearMeActive && userLocation ? userLocation.lng : undefined,
+      radius_km: nearMeActive ? 10 : undefined,
     })
       .then((items) => {
         if (isMounted) {
@@ -104,7 +156,7 @@ function RouteXNativeMain() {
     return () => {
       isMounted = false;
     };
-  }, [selectedCategory, selectedStatus]);
+  }, [selectedCategory, selectedStatus, nearMeActive, userLocation]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -255,7 +307,7 @@ function RouteXNativeMain() {
       {/* Active Tab View */}
       <View style={[styles.content, { backgroundColor: theme.background }]}>
         {activeTab === 'map' ? (
-          <NativeMapScreen hazards={hazards} />
+          <NativeMapScreen hazards={hazards} userLocation={userLocation} radiusKm={10} />
         ) : activeTab === 'dashboard' ? (
           <View style={{ flex: 1 }}>
             {/* Top Role Switcher if Moderator or Admin */}
@@ -349,6 +401,9 @@ function RouteXNativeMain() {
               selectedStatus={selectedStatus}
               onSelectStatus={setSelectedStatus}
               totalCount={hazards.length}
+              nearMeActive={nearMeActive}
+              onToggleNearMe={handleToggleNearMe}
+              locating={locating}
             />
 
             {/* Hazard Feed */}
@@ -380,7 +435,9 @@ function RouteXNativeMain() {
                       No Hazards Found
                     </Text>
                     <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
-                      {selectedCategory !== 'all'
+                      {nearMeActive
+                        ? 'No hazards reported within 10 km of your current location. Route is clear!'
+                        : selectedCategory !== 'all'
                         ? 'No reports match the selected filters.'
                         : 'Great news! All monitored routes are currently clear.'}
                     </Text>

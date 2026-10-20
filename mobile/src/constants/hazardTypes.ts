@@ -80,6 +80,7 @@ export interface HazardItem {
   confirmations_count?: number;
   flags_count?: number;
   is_demo?: boolean;
+  distance_km?: number;
 }
 
 export function getCategoryConfig(categoryId: string): HazardCategoryConfig {

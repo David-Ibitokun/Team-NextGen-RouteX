@@ -29,6 +29,12 @@ export function MapPage() {
   const [mobileTab, setMobileTab] = useState("map"); // "map" | "list"
   const { user } = useAuth();
 
+  // Geolocation & Near Me State
+  const [userLocation, setUserLocation] = useState(null);
+  const [nearMeActive, setNearMeActive] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+
   // Sync state with URL search params when category or status changes
   const handleCategoryChange = (cat) => {
     setSelectedCategory(cat);
@@ -46,6 +52,49 @@ export function MapPage() {
     setSearchParams(newParams);
   };
 
+  const handleToggleNearMe = () => {
+    if (nearMeActive) {
+      setNearMeActive(false);
+      setUserLocation(null);
+      setLocationError(null);
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setLocating(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        setUserLocation(coords);
+        setNearMeActive(true);
+        setLocating(false);
+      },
+      (geoErr) => {
+        setLocating(false);
+        setNearMeActive(false);
+        let msg = "Could not acquire your location.";
+        if (geoErr.code === 1) {
+          msg = "Location permission denied. Please allow location access in your browser settings to see hazards near you.";
+        } else if (geoErr.code === 2) {
+          msg = "Position unavailable. Please ensure your device's location/GPS is turned on.";
+        } else if (geoErr.code === 3) {
+          msg = "Location request timed out. Please try again.";
+        }
+        setLocationError(msg);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  };
+
   const fetchHazards = useCallback(async () => {
     try {
       setLoading(true);
@@ -53,6 +102,11 @@ export function MapPage() {
       const params = {};
       if (selectedCategory) params.category = selectedCategory;
       if (selectedStatus) params.status = selectedStatus;
+      if (nearMeActive && userLocation) {
+        params.lat = userLocation.lat;
+        params.lng = userLocation.lng;
+        params.radius_km = 10;
+      }
 
       const response = await hazardService.getHazards(params);
       const items = response.results ? response.results : response;
@@ -67,7 +121,7 @@ export function MapPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, selectedStatus]);
+  }, [selectedCategory, selectedStatus, nearMeActive, userLocation]);
 
   useEffect(() => {
     fetchHazards();
@@ -109,7 +163,23 @@ export function MapPage() {
             selectedStatus={selectedStatus}
             onSelectStatus={handleStatusChange}
             totalCount={hazards.length}
+            nearMeActive={nearMeActive}
+            onToggleNearMe={handleToggleNearMe}
+            locating={locating}
           />
+
+          {locationError && (
+            <div className="mx-3 mt-2 p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-300 flex items-start justify-between gap-2">
+              <span>{locationError}</span>
+              <button
+                type="button"
+                onClick={() => setLocationError(null)}
+                className="text-amber-600 hover:text-amber-900 dark:text-amber-400 font-bold text-sm leading-none"
+              >
+                &times;
+              </button>
+            </div>
+          )}
 
           {/* List or Feedback States */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2.5 pb-20 md:pb-4">
@@ -121,10 +191,14 @@ export function MapPage() {
 
             {!loading && !error && hazards.length === 0 && (
               <EmptyState
-                title="No reports match these filters"
-                message="No reports match these filters. Try another filter or report a hazard you see."
-                actionLabel="Report a hazard"
-                onAction={() => setShowReportModal(true)}
+                title={nearMeActive ? "No Hazards Within 10 km" : "No reports match these filters"}
+                message={
+                  nearMeActive
+                    ? "Great news! No road hazards have been reported within 10 km of your current location."
+                    : "No reports match these filters. Try another filter or report a hazard you see."
+                }
+                actionLabel={nearMeActive ? "View All Hazards" : "Report a hazard"}
+                onAction={nearMeActive ? () => handleToggleNearMe() : () => setShowReportModal(true)}
               />
             )}
 
@@ -155,6 +229,8 @@ export function MapPage() {
             hazards={hazards}
             selectedHazard={selectedHazard}
             onSelectHazard={(h) => setSelectedHazard(h)}
+            userLocation={userLocation}
+            radiusKm={10}
           />
 
           {/* Floating Details Slide-over for Selected Report */}

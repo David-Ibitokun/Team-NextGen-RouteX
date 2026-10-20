@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { Navigation, X } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { HAZARD_CATEGORIES, HAZARD_STATUSES } from '../constants/hazardTypes';
 
@@ -9,6 +10,9 @@ interface HazardFiltersNativeProps {
   selectedStatus: string;
   onSelectStatus: (statusId: string) => void;
   totalCount: number;
+  nearMeActive?: boolean;
+  onToggleNearMe?: () => void;
+  locating?: boolean;
 }
 
 export const HazardFiltersNative: React.FC<HazardFiltersNativeProps> = ({
@@ -17,24 +21,60 @@ export const HazardFiltersNative: React.FC<HazardFiltersNativeProps> = ({
   selectedStatus,
   onSelectStatus,
   totalCount,
+  nearMeActive = false,
+  onToggleNearMe,
+  locating = false,
 }) => {
   const { isDark, theme } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-      {/* Category Pills */}
+      {/* Category Pills and Near Me toggle */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {onToggleNearMe && (
+          <TouchableOpacity
+            onPress={onToggleNearMe}
+            disabled={locating}
+            style={[
+              styles.pill,
+              {
+                backgroundColor: nearMeActive ? theme.teal : isDark ? '#0C2E42' : '#E0F2FE',
+                borderColor: nearMeActive ? theme.tealDark : theme.teal,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+              },
+            ]}
+            activeOpacity={0.7}
+          >
+            {locating ? (
+              <ActivityIndicator size="small" color={nearMeActive ? '#FFFFFF' : theme.teal} />
+            ) : (
+              <Navigation size={12} color={nearMeActive ? '#FFFFFF' : theme.teal} />
+            )}
+            <Text
+              style={[
+                styles.pillText,
+                { color: nearMeActive ? '#FFFFFF' : theme.teal, fontWeight: '700' },
+              ]}
+            >
+              {nearMeActive ? 'Near Me (10 km)' : 'Near Me'}
+            </Text>
+            {nearMeActive && <X size={12} color="#FFFFFF" />}
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           onPress={() => onSelectCategory('all')}
           style={[
             styles.pill,
             {
-              backgroundColor: selectedCategory === 'all' ? theme.teal : theme.surfaceSubtle,
-              borderColor: selectedCategory === 'all' ? theme.tealDark : theme.borderSubtle,
+              backgroundColor: selectedCategory === 'all' && !nearMeActive ? theme.teal : theme.surfaceSubtle,
+              borderColor: selectedCategory === 'all' && !nearMeActive ? theme.tealDark : theme.borderSubtle,
             },
           ]}
           activeOpacity={0.7}
@@ -42,7 +82,7 @@ export const HazardFiltersNative: React.FC<HazardFiltersNativeProps> = ({
           <Text
             style={[
               styles.pillText,
-              { color: selectedCategory === 'all' ? '#FFFFFF' : theme.textPrimary },
+              { color: selectedCategory === 'all' && !nearMeActive ? '#FFFFFF' : theme.textPrimary },
             ]}
           >
             All Hazards ({totalCount})

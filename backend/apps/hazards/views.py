@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal
 from django.db.models import F
 from rest_framework import viewsets, status, serializers as drf_serializers
@@ -21,6 +22,20 @@ from .serializers import (
 )
 
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate the great circle distance between two points in kilometers."""
+    earth_radius_km = 6371.0
+    d_lat = math.radians(lat2 - lat1)
+    d_lon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(d_lat / 2.0) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(d_lon / 2.0) ** 2
+    )
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+    return earth_radius_km * c
 
 class CsrfExemptSessionAuthentication(SessionAuthentication):
     def enforce_csrf(self, request):
@@ -88,6 +103,24 @@ class ConfirmationResponseSerializer(drf_serializers.Serializer):
                 type=OpenApiTypes.DECIMAL,
                 location=OpenApiParameter.QUERY,
                 description="Maximum longitude for bounding-box search.",
+            ),
+            OpenApiParameter(
+                name="lat",
+                type=OpenApiTypes.DECIMAL,
+                location=OpenApiParameter.QUERY,
+                description="User latitude for proximity search (e.g. 6.4531).",
+            ),
+            OpenApiParameter(
+                name="lng",
+                type=OpenApiTypes.DECIMAL,
+                location=OpenApiParameter.QUERY,
+                description="User longitude for proximity search (e.g. 3.3958).",
+            ),
+            OpenApiParameter(
+                name="radius_km",
+                type=OpenApiTypes.FLOAT,
+                location=OpenApiParameter.QUERY,
+                description="Proximity search radius in kilometers (default: 10.0, max: 100.0).",
             ),
         ],
     ),
@@ -169,6 +202,73 @@ class HazardReportViewSet(viewsets.ModelViewSet):
             pass
 
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        lat_param = request.query_params.get("lat")
+        lng_param = request.query_params.get("lng")
+
+        if lat_param is not None and lng_param is not None:
+            try:
+                lat = float(lat_param)
+                lng = float(lng_param)
+                if not (-90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0):
+                    return Response(
+                        {"detail": "Coordinates out of valid range (-90 to 90 lat, -180 to 180 lng)."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except (ValueError, TypeError):
+                return Response(
+                    {"detail": "Invalid 'lat' or 'lng' coordinate format."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            radius_param = request.query_params.get("radius_km", "10")
+            try:
+                radius_km = float(radius_param)
+                if radius_km <= 0:
+                    radius_km = 10.0
+                elif radius_km > 100.0:
+                    radius_km = 100.0
+            except (ValueError, TypeError):
+                radius_km = 10.0
+
+            # Bounding box pre-filter for database indexing efficiency
+            deg_lat = radius_km / 111.32
+            cos_lat = max(math.cos(math.radians(lat)), 0.0001)
+            deg_lng = radius_km / (111.32 * cos_lat)
+
+            queryset = self.get_queryset().filter(
+                latitude__gte=Decimal(f"{lat - deg_lat:.6f}"),
+                latitude__lte=Decimal(f"{lat + deg_lat:.6f}"),
+                longitude__gte=Decimal(f"{lng - deg_lng:.6f}"),
+                longitude__lte=Decimal(f"{lng + deg_lng:.6f}"),
+            )
+
+            # Compute exact Haversine distance, filter and sort
+            matched_reports = []
+            for report in queryset:
+                try:
+                    rep_lat = float(report.latitude)
+                    rep_lng = float(report.longitude)
+                    dist = haversine_distance(lat, lng, rep_lat, rep_lng)
+                    if dist <= radius_km:
+                        report.distance_km = round(dist, 2)
+                        matched_reports.append(report)
+                except (ValueError, TypeError):
+                    continue
+
+            # Sort by distance ascending (closest first)
+            matched_reports.sort(key=lambda r: getattr(r, "distance_km", float("inf")))
+
+            page = self.paginate_queryset(matched_reports)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            serializer = self.get_serializer(matched_reports, many=True)
+            return Response(serializer.data)
+
+        return super().list(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         reporter = self.request.user if self.request.user.is_authenticated else None

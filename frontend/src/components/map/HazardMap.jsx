@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import { MapContainer, TileLayer, Circle, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
 import { HazardMarker } from "./HazardMarker";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -78,11 +79,53 @@ function FlyToSelectedHazard({ selectedHazard }) {
   return null;
 }
 
+const userLocationIcon = L.divIcon({
+  className: "user-location-marker",
+  html: `
+    <div style="
+      position: relative;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #087F8C;
+      border: 3px solid #ffffff;
+      box-shadow: 0 0 0 2px #087F8C, 0 4px 10px rgba(8,127,140,0.5);
+    ">
+      <div style="
+        position: absolute;
+        top: -6px;
+        left: -6px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(8,127,140,0.3);
+        animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+      "></div>
+    </div>
+  `,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+  popupAnchor: [0, -10],
+});
+
+function FlyToUserLocation({ userLocation }) {
+  const map = useMap();
+  useEffect(() => {
+    if (userLocation && userLocation.lat != null && userLocation.lng != null) {
+      map.flyTo([Number(userLocation.lat), Number(userLocation.lng)], 13, { duration: 1.2 });
+    }
+  }, [userLocation, map]);
+
+  return null;
+}
+
 export function HazardMap({
   hazards = [],
   selectedHazard,
   onSelectHazard,
   onBoundsChange,
+  userLocation = null,
+  radiusKm = 10,
   className = "w-full h-full",
 }) {
   const { isDark } = useTheme();
@@ -108,6 +151,36 @@ export function HazardMap({
         <MapResizeHandler />
         <MapEventsHandler onBoundsChange={onBoundsChange} />
         <FlyToSelectedHazard selectedHazard={selectedHazard} />
+        <FlyToUserLocation userLocation={userLocation} />
+
+        {userLocation && userLocation.lat != null && userLocation.lng != null && (
+          <>
+            <Circle
+              center={[Number(userLocation.lat), Number(userLocation.lng)]}
+              radius={(radiusKm || 10) * 1000}
+              pathOptions={{
+                color: "#087F8C",
+                fillColor: "#087F8C",
+                fillOpacity: 0.08,
+                weight: 2,
+                dashArray: "6, 6",
+              }}
+            />
+            <Marker
+              position={[Number(userLocation.lat), Number(userLocation.lng)]}
+              icon={userLocationIcon}
+            >
+              <Popup>
+                <div className="text-xs p-1 text-center">
+                  <p className="font-bold text-[#142B3B] dark:text-slate-100">Your Location</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Showing hazards within {radiusKm || 10} km
+                  </p>
+                </div>
+              </Popup>
+            </Marker>
+          </>
+        )}
 
         {hazards.map((hazard) => (
           <HazardMarker
