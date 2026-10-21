@@ -278,6 +278,14 @@ if DEBUG:
     # Ensure all entries are unique
     CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
+# Cross-origin cookie and session support for separated frontend/backend domains (e.g. Vercel + Heroku)
+if not DEBUG:
+    SESSION_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = False  # Allows Axios frontend to read csrftoken cookie
+
 # Google Gemini AI Feature Settings (Backend-only, strictly optional)
 GEMINI_AI_ENABLED = os.environ.get("GEMINI_AI_ENABLED", "False").lower() in ("true", "1", "yes")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
