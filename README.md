@@ -7,8 +7,11 @@
 
 **Team:** NextGen &nbsp;|&nbsp; **Scope:** Universal Community Road Awareness &nbsp;|&nbsp; **Version:** 1.0.0-MVP
 
-[![Django Tests](https://img.shields.io/badge/Django_Tests-28%2F28_Passing-brightgreen.svg)]()
+[![Django Tests](https://img.shields.io/badge/Django_Tests-68%2F68_Passing-brightgreen.svg)]()
+[![Mobile Tests](https://img.shields.io/badge/Mobile_Tests-15%2F15_Passing-brightgreen.svg)]()
 [![OpenAPI 3.0](https://img.shields.io/badge/OpenAPI-3.0_Swagger_UI-blue.svg)](http://127.0.0.1:8000/api/docs/)
+[![AI Ready](https://img.shields.io/badge/Gemini_AI-Integrated-orange.svg)]()
+[![Notifications](https://img.shields.io/badge/Notifications-Full_Stack-teal.svg)]()
 [![Frontend Build](https://img.shields.io/badge/Vite_Build-Passing-brightgreen.svg)]()
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable-purple.svg)]()
 [![Icons](https://img.shields.io/badge/Icons-Lucide_React-teal.svg)](https://lucide.dev/)
@@ -53,13 +56,19 @@ Unlike closed or proprietary navigation systems, RouteX operates on **civic tran
 |---|:---:|:---:|:---:|:---:|
 | Browse Landing Page & Live Map | ✅ | ✅ | ✅ | ✅ |
 | Filter Hazards & View Detail Panel | ✅ | ✅ | ✅ | ✅ |
+| Filter Hazards by 10km Proximity ("Near Me") | ✅ | ✅ | ✅ | ✅ |
 | Submit Road Hazard Report | ❌ | ✅ | ✅ | ✅ |
 | Upload Photographic Evidence | ❌ | ✅ | ✅ | ✅ |
 | Confirm Active Hazard (1 per user) | ❌ | ✅ | ✅ | ✅ |
+| AI Category Suggestion & Wording Enhancer | ❌ | ✅ | ✅ | ✅ |
+| AI Proactive Duplicate Detection & 1-Click Confirm | ❌ | ✅ | ✅ | ✅ |
+| In-App & Push Notifications Inbox | ❌ | ✅ | ✅ | ✅ |
 | Submit Report Flag for Review | ❌ | ✅ | ✅ | ✅ |
 | Access Citizen Dashboard (`/dashboard`) | ❌ | ✅ | ✅ | ✅ |
 | Access Moderator Queue (`/moderator`) | ❌ | ❌ | ✅ | ✅ |
 | Perform Moderation Action with Reason | ❌ | ❌ | ✅ | ✅ |
+| AI Incident Summarizer for Moderators | ❌ | ❌ | ✅ | ✅ |
+| Broadcast Corridor Safety Advisories | ❌ | ❌ | ✅ | ✅ |
 | Access Admin Portal (`/admin-dashboard`) | ❌ | ❌ | ❌ | ✅ |
 | Manage User Roles (Promote/Demote) | ❌ | ❌ | ❌ | ✅ |
 | Configure Live Operational Parameters | ❌ | ❌ | ❌ | ✅ |
@@ -140,11 +149,13 @@ Interactive OpenAPI 3.0 documentation is built-in and categorized into 5 functio
 - **API Discovery Root:** [`http://127.0.0.1:8000/api/v1/`](http://127.0.0.1:8000/api/v1/)
 
 ### Swagger Endpoint Tags:
-1. `hazards`: Browse, submit, confirm, and flag community road hazards.
+1. `hazards`: Browse, submit, confirm, and flag community road hazards (with 10km proximity search).
 2. `auth`: Session authentication, registration, user profile, and personal citizen dashboard.
 3. `moderation`: Moderator queue, report inspection, status transitions with mandatory rationale, and decision history.
 4. `admin`: Platform administration, user & role management, operational settings, and system audit trail.
-5. `system`: System health and discovery endpoints.
+5. `ai`: Google Gemini-powered AI assistants for category suggestion, wording improvement, report summarization, and duplicate detection.
+6. `notifications`: In-app notification center, unread counters, Expo push token registration, and corridor safety advisories.
+7. `system`: System health and discovery endpoints.
 
 ### API Endpoints Matrix (Selected)
 
@@ -157,10 +168,20 @@ Interactive OpenAPI 3.0 documentation is built-in and categorized into 5 functio
 | `GET` | `/api/v1/auth/me/` | Authenticated | Return authenticated profile & role |
 | `GET` | `/api/v1/auth/dashboard-summary/` | Authenticated | Citizen dashboard aggregate metrics |
 | `PATCH` | `/api/v1/auth/profile/` | Authenticated | Update display name and email |
-| `GET` | `/api/v1/hazards/` | Public | List paginated hazards (filters: category, status, bbox) |
+| `GET` | `/api/v1/hazards/` | Public | List paginated hazards (filters: category, status, bbox, ?lat=..&lng=..&radius_km=10) |
 | `POST` | `/api/v1/hazards/` | Authenticated | Submit hazard report (JSON or Multipart with photo) |
 | `POST` | `/api/v1/hazards/{id}/confirm/` | Authenticated | Add citizen confirmation (auto-confirms at threshold) |
 | `POST` | `/api/v1/hazards/{id}/flags/` | Authenticated | Flag report for moderation review |
+| `POST` | `/api/v1/ai/suggest-category/` | Authenticated | Suggest best hazard category using Gemini AI |
+| `POST` | `/api/v1/ai/improve-description/` | Authenticated | Grammar/clarity enhancement without altering facts |
+| `POST` | `/api/v1/ai/summarize-report/` | Moderator / Admin | Generate concise objective incident summary |
+| `POST` | `/api/v1/ai/check-duplicates/` | Authenticated | Spatial (Haversine 1km) + temporal (48h) + AI semantic duplicate check |
+| `GET` | `/api/v1/notifications/` | Authenticated | Paginated notifications for active user (?unread=true, ?type=..) |
+| `GET` | `/api/v1/notifications/unread-count/` | Authenticated | Total unread notification badge count |
+| `PATCH` | `/api/v1/notifications/{id}/read/` | Authenticated | Mark single notification as read |
+| `POST` | `/api/v1/notifications/mark-all-read/` | Authenticated | Mark all user notifications as read |
+| `POST` | `/api/v1/notifications/devices/` | Authenticated | Register/update Expo push notification device token |
+| `POST` | `/api/v1/notifications/broadcast/` | Moderator / Admin | Broadcast corridor or city safety advisory |
 | `GET` | `/api/v1/moderation/stats/` | Moderator / Admin | Return queue statistics |
 | `GET` | `/api/v1/moderation/reports/` | Moderator / Admin | List reports pending review |
 | `POST` | `/api/v1/moderation/reports/{id}/action/` | Moderator / Admin | Apply moderation decision with rationale |
@@ -176,22 +197,36 @@ Interactive OpenAPI 3.0 documentation is built-in and categorized into 5 functio
 
 ## 🧪 Testing & Quality Assurance
 
-All **28 automated tests** pass with 100% success rate:
+All **68 automated backend tests** and **15 automated mobile tests** pass with 100% success rate:
 
 ```powershell
+# Backend Test Suite (68/68 Passing in 1.9s)
 python backend/manage.py test apps
 ```
 
 ```text
-Found 28 test(s).
+Found 68 test(s).
 Creating test database for alias 'default'...
 System check identified no issues (0 silenced).
-............................
+....................................................................
 ----------------------------------------------------------------------
-Ran 28 tests in 0.773s
+Ran 68 tests in 1.975s
 
 OK
 Destroying test database for alias 'default'...
+```
+
+```powershell
+# Mobile Test Suite (15/15 Passing)
+npm --prefix mobile test
+```
+
+```text
+--- Running RouteX Mobile Unit Tests ---
+✓ 10 Security & Navigation Policy Tests Passed
+--- Running RouteX Mobile Auth, API & Notification Tests ---
+✓ 5 Mobile API & Notification Channel Tests Passed
+All 15 RouteX Mobile Tests Passed Successfully! (15/15)
 ```
 
 ---
@@ -207,21 +242,31 @@ RouteX/
 ├── run_all.bat               # One-click dual server launcher
 ├── run_backend.bat           # One-click backend launcher
 ├── run_frontend.bat          # One-click frontend launcher
+├── run_mobile.bat            # One-click mobile app launcher
 ├── test_backend.bat          # One-click backend test runner
 ├── frontend/                 # React 18 + Vite 6 web client + PWA
 │   ├── public/               # manifest.json, sw.js, SVG icons
 │   └── src/
 │       ├── app/              # Router and top-level providers
-│       ├── components/       # Common, forms, feedback, hazards, layout, map
-│       ├── context/          # AuthContext (RBAC), ThemeContext
+│       ├── components/       # Common, forms, feedback, hazards, layout, map, notifications
+│       ├── context/          # AuthContext (RBAC), ThemeContext, NotificationContext
 │       ├── pages/            # Landing, Map, Report, Auth, CustomerDashboard, Moderation, AdminDashboard
-│       ├── services/         # Axios API client with CSRF interceptors
+│       ├── services/         # Axios API clients (apiClient, aiService, notificationService)
 │       └── utils/            # Hazard constants, design tokens
+├── mobile/                   # React Native Expo application (iOS & Android)
+│   ├── src/
+│   │   ├── components/       # Native map screen, report form, modals, hazard cards
+│   │   ├── services/         # Mobile API client, hazardService, notificationService, aiService
+│   │   └── context/          # Native AuthContext and ThemeContext
+│   ├── scripts/              # Automated mobile unit and security policy tests
+│   └── App.tsx               # Root mobile application with native navigation and offline fallback
 └── backend/                  # Django 5.1 + DRF API service
     ├── apps/
     │   ├── accounts/         # Custom user model, RBAC permissions, admin views, tests
-    │   ├── hazards/          # Hazard reports, confirmations, seed commands, tests
-    │   └── moderation/       # Moderation flags, actions, audit logs, tests
+    │   ├── hazards/          # Hazard reports, confirmations, 10km proximity search, seed commands, tests
+    │   ├── moderation/       # Moderation flags, actions, audit logs, tests
+    │   ├── ai_assistant/     # Google Gemini AI services, category suggestion, summarizer, duplicate detection
+    │   └── notifications/    # In-app notifications, DevicePushTokens, Expo push gateway, tests
     ├── config/               # Settings, URLs, OpenAPI schema
     └── media/                # User uploaded hazard photos
 ```

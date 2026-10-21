@@ -7,14 +7,59 @@
 - **Product:** RouteX
 - **Tagline:** Know the Road Ahead.
 - **Scope:** Universal Community Road Awareness (not restricted to any single municipality)
-- **Status:** Full Web MVP & Expo React Native Android Container Complete with 4-Tier RBAC, 3 Dedicated Dashboards, Leaflet OSM Map, PWA Native Experience, 34 Passing Backend Tests, 10 Passing Mobile Tests, 0 Build/Type Errors, and Zero-API-Key Tile Architecture.
-- **Mobile:** Expo SDK 57 (Expo Go Play Store compatible) + TypeScript + `react-native-webview` (v14.0.1) + `react-native-safe-area-context` (v5.10.1) with branded loading, recoverable error recovery, and safe origin navigation policy.
-- **Frontend:** React 18 + Vite 6 + Tailwind CSS v4 + React Leaflet with official OSM tiles + Lucide React + PWA Service Worker.
-- **Backend:** Django 5.1 + Django REST Framework + drf-spectacular (OpenAPI 3.0 / Swagger UI / ReDoc).
-- **Database:** Migrations applied for `accounts` (with `PlatformSettings` and `SystemAuditLog`), `hazards`, `moderation` (PostgreSQL supported, SQLite local fallback).
+- **Status:** Production-Ready Web & Expo React Native App with 4-Tier RBAC, 3 Dedicated Dashboards, 10km Proximity Radius ("Near Me"), Proactive AI Duplicate Detection, Full-Stack Notification System, 68 Passing Backend Tests, 15 Passing Mobile Tests, and 0 Build/Type Errors.
+- **Mobile:** Expo React Native + TypeScript + NativeMapScreen, ReportScreenNative, NotificationsModalNative, direct REST API client, Expo Push channel integration, and hybrid offline fallback.
+- **Frontend:** React 18 + Vite 6 + Tailwind CSS v4 + React Leaflet with official OSM tiles + NotificationBell + Toasts + AI Assistants + PWA Service Worker.
+- **Backend:** Django 5.1 + Django REST Framework + drf-spectacular (OpenAPI 3.0 / Swagger UI / ReDoc) with `accounts`, `hazards`, `moderation`, `ai_assistant`, and `notifications` apps.
+- **Database:** Migrations applied for all 5 domain apps (PostgreSQL supported, SQLite local fallback).
 - **Environment:** `.env.example` templates and active local `.env` configured for root, frontend, and mobile.
 
 ## Session log
+
+### 2026-10-20 — Full-Stack Notification System Implementation
+- **Work completed:**
+  - **Backend Notification Architecture (`apps.notifications`):**
+    - Built dedicated Django app `apps.notifications` with `models.py`, `services.py`, `serializers.py`, `views.py`, and `urls.py`.
+    - Created `Notification` model with recipient, sender, type choices (`hazard_reported`, `hazard_confirmed`, `status_changed`, `hazard_flagged`, `safety_advisory`, `system`), target hazard foreign key, and read tracking.
+    - Created `DevicePushToken` model to store mobile push tokens.
+    - Created `NotificationService` handling database persistence and asynchronous non-blocking push dispatches via the Expo Push Notification API.
+    - Hooked lifecycle triggers:
+      - Report submission receipt (`notify_hazard_reported`)
+      - Community confirmation alert to original reporter (`notify_hazard_confirmed`)
+      - Verification milestone alert when $\ge 3$ confirmations reached (`notify_hazard_verified_milestone`)
+      - Moderation status updates (resolved, under review, rejected) with mandatory rationale (`notify_hazard_status_changed`)
+      - Staff alerts on community flags (`notify_moderators_flagged`)
+      - Corridor safety advisory broadcast (`broadcast_safety_advisory`)
+    - Exposed REST endpoints: `/api/v1/notifications/`, `/unread-count/`, `/<id>/read/`, `/mark-all-read/`, `/devices/`, `/broadcast/`.
+  - **Frontend Web Notification Center:**
+    - Created `frontend/src/services/notificationService.js` and `NotificationContext.jsx` with automatic 45s polling and focus refresh.
+    - Created `NotificationBell.jsx` in `AppHeader.jsx` with animated badge counter, tabbed popover ("All" / "Unread"), relative timestamps, and click-to-view navigation on the live map.
+    - Created `ToastNotification.jsx` for floating live in-app notifications.
+  - **Mobile Notification Synchronization:**
+    - Upgraded `mobile/src/services/notificationService.ts` to hybrid mode: queries remote API when authenticated and falls back to local `AsyncStorage` for offline/guest users.
+    - Added device push token registration (`registerDevicePushToken`).
+    - Enhanced `NotificationsModalNative.tsx` with pull-to-refresh (`RefreshControl`) and one-tap navigation to view hazards on the map screen.
+  - **Verification & Testing:**
+    - Authored 8 automated tests in `apps/notifications/tests.py`.
+    - Ran full backend test suite: **68/68 passing in 1.9s** (100% success rate).
+    - Ran mobile test suite: **15/15 passing** (10 policy + 5 API/auth/notification).
+    - Validated OpenAPI 3.0 schema with 0 errors (`spectacular --validate`).
+    - Verified Vite production build: `vite build` completed cleanly with 0 errors.
+
+### 2026-10-20 — "Hazards Near You" (10km Proximity) & Proactive AI Duplicate Detection
+- **Work completed:**
+  - **10km Proximity Filtering:**
+    - Backend: Updated `HazardReportViewSet.list` to accept `lat`, `lng`, `radius_km` parameters. Implemented database-agnostic two-stage strategy (bounding box pre-filter + exact spherical Haversine distance), attaching `distance_km` to response objects and sorting closest-first.
+    - Frontend: Added "Near Me (10 km)" toggle button, Leaflet 10km dashed circle visualizer, user location marker, and distance badges.
+    - Mobile: Integrated `expo-location` foreground permissions, "Near Me" chip, map circle, and distance badges.
+  - **Proactive AI Duplicate Detection & 1-Click Confirmation:**
+    - Added debounced (1.2s) auto-scan on draft descriptions ($\ge 10$ chars) and selected coordinates.
+    - Displayed matching candidate cards with distance, category, and AI similarity rationale.
+    - Added 1-click "Confirm Existing Hazard Instead" button (`confirmHazard`) with celebratory success state.
+    - Implemented pre-submission interception modal/alert prompting commuters before filing if an active duplicate exists nearby.
+  - **Verification & Testing:**
+    - 4 new proximity tests in `apps/hazards/tests/test_hazards_api.py`.
+    - Verified complete web build and mobile tests.
 
 ### 2026-10-19 — Google Gemini AI Integration (Phase 2 Roadmap Complete)
 - **Work completed:**

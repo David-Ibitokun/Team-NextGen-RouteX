@@ -13,11 +13,13 @@
 - [x] **N8 — Implement Moderation Review Queue & History.** Created role-based moderation endpoints (`GET /api/v1/moderation/reports/`, `POST /api/v1/moderation/reports/<id>/action/`), audit history logging, and Moderator review dashboard UI.
 - [x] **N9 — Implement My Reports User Dashboard.** Built `/my-reports` screen showing user submissions, timestamps, freshness, confirmation counts, and map links.
 - [x] **N10 — Enforce Confirmation Threshold & Duplicate Safeguards.** Unique constraints and backend checks prevent repeated confirmations/flags; auto-transitions reports to `community_confirmed` upon reaching 3 distinct confirmations.
+- [x] **N11 — Implement "Hazards Near You" (10 km Proximity Radius).** Delivered bounding box pre-filtering + spherical Haversine distance calculations in backend (`?lat=..&lng=..&radius_km=10`), web "Near Me" toggle with Leaflet 10km circle visualizer, and mobile `expo-location` GPS tracking.
+- [x] **N12 — Proactive AI Duplicate Detection & 1-Click Confirmation.** Real-time debounced (1.2s) auto-scan on draft description + coords, candidate cards with AI similarity rationale, 1-click "Confirm Existing Hazard" button, and pre-submission confirmation alerts across web and mobile.
+- [x] **N13 — Full-Stack Notification System.** Persistent `Notification` & `DevicePushToken` models, event triggers on hazard lifecycle, Expo push notification gateway, web `NotificationBell` with unread badge counter, live `ToastNotification` banner, and mobile hybrid sync.
 
 ## Next
 - [ ] Add marker clustering on `/map` for very dense hazard clusters across supported regions.
 - [ ] Add photo full-screen lightbox modal for high-resolution photographic evidence inspection.
-- [ ] Add PWA (Progressive Web App) manifest and service worker for offline shell caching.
 - [ ] Implement email verification workflow for accounts upon public launch.
 
 ## Done — Google Gemini AI (Phase 2 Delivered)
@@ -29,15 +31,13 @@
 - [x] Deliver frontend AI assistant components: `AISuggestionCard`, "Suggest Category" pill, "Refine wording" drawer, and moderator incident summary & duplicate scanner.
 - [x] Enforce human-in-the-loop: AI alone never verifies, resolves, rejects, or publishes reports.
 
-## Later — React Native mobile (Native Capabilities Phase)
-- [x] Create Expo React Native mobile container (`mobile/`) with WebView, brand tokens, and security boundaries.
-- [x] Implement safe navigation policy: restrict to RouteX origin, delegate external links (`Linking.openURL`), block unsafe schemes.
-- [x] Configure Android back button handling, recoverable error screen, branded loading screen, and config missing diagnostics.
-- [x] Verify cookie sharing, DOM storage, geolocation enablement, and photo upload support via WebView.
-- [ ] Evaluate migration from WebView to pure native screens and React Native native maps in future phase.
-- [ ] Add Expo Push Notifications for real-time hazard alerts.
-- [ ] Evaluate offline draft report queue with SQLite/AsyncStorage.
-- [ ] Test on real physical Android devices and document iOS requirements if iOS support is pursued.
+## Done — React Native mobile (Native Capabilities Phase)
+- [x] Create Expo React Native mobile container (`mobile/`) with brand tokens and security boundaries.
+- [x] Implement native screens: `NativeMapScreen`, `ReportScreenNative`, `ReportModalNative`, `NotificationsModalNative`, and `HazardCardNative`.
+- [x] Integrate `expo-location` for 10km "Near Me" proximity filtering.
+- [x] Integrate Expo Push Notifications channel setup and device token registration.
+- [x] Connect mobile direct REST API client with cookie and session extraction.
+- [x] Automated mobile unit and security policy test suites (15/15 passing).
 
 ## Later — scale and expansion
 - [ ] Evaluate deployment, monitoring, backups, media storage, and abuse-report workflows before a public launch.

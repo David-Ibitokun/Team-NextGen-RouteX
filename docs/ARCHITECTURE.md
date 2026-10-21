@@ -6,24 +6,28 @@ Keep the MVP easy to run, safe to extend, and focused on a working reporting flo
 ## 2. High-level architecture
 
 ```text
-Current MVP
-Browser / Mobile Web
-  React + Vite + Tailwind CSS
-  React Router + Axios
-  React Leaflet + configured map tiles
+Current Production Architecture
+Browser / Web PWA
+  React 18 + Vite 6 + Tailwind CSS v4
+  React Leaflet + OSM tiles (zero-API-key)
+  Axios with CSRF & Session interceptors
+  NotificationBell, live Toasts, & AI Assistants
+            |
+Mobile Client (iOS & Android)
+  Expo React Native + TypeScript
+  NativeMapScreen, reporting flows, & modals
+  expo-location (10km Proximity) & push alerts
             | HTTPS / JSON / multipart uploads
             v
-Django REST Framework API
-  Authentication + permissions
-  Hazard reporting + confirmations + flags
+Django REST Framework API (v1)
+  Authentication + RBAC permissions
+  Hazard reporting + confirmations + flags + 10km radius
   Moderation + audit history
-  Optional Google Gemini adapter (server-side only)
+  Google Gemini AI Service Adapter (server-side only)
+  Full-Stack Notification Service & Expo Push Gateway
             | ORM
             v
-PostgreSQL + configured media storage
-
-Future mobile client
-React Native + Expo  -----> same versioned Django REST API
+PostgreSQL / SQLite + configured media storage
 ```
 
 The browser can request map tiles from a configured provider. Follow the selected provider's attribution, caching, and usage policy. Do not assume public OpenStreetMap tile servers are an unlimited production tile service.
@@ -31,7 +35,7 @@ The browser can request map tiles from a configured provider. Follow the selecte
 ## 3. Suggested repository structure
 
 ```text
-routex/
+RouteX/
 ├── PLAN.md
 ├── BRAND.md
 ├── VOICE.md
@@ -41,67 +45,79 @@ routex/
 ├── STYLE.md
 ├── IDE_SETUP_PROMPT.md
 ├── README.md
+├── DOCUMENTATION.md
+├── run_all.bat
+├── run_backend.bat
+├── run_frontend.bat
+├── run_mobile.bat
+├── test_backend.bat
 ├── .gitignore
 ├── .env.example
 ├── frontend/
 │   ├── package.json
 │   ├── vite.config.js
 │   └── src/
-│       ├── main.jsx
-│       ├── App.jsx
 │       ├── app/router.jsx
-│       ├── pages/
-│       ├── components/layout/
-│       ├── components/map/
-│       ├── components/hazards/
-│       ├── components/forms/
-│       ├── components/feedback/
-│       ├── features/auth/
-│       ├── features/hazards/
-│       ├── features/moderation/
-│       ├── services/apiClient.js
-│       ├── hooks/
-│       └── index.css
+│       ├── components/ (layout, map, hazards, forms, notifications)
+│       ├── context/ (AuthContext, ThemeContext, NotificationContext)
+│       ├── pages/ (Landing, Map, Report, Auth, Dashboards, Moderation)
+│       └── services/ (apiClient, aiService, notificationService)
+├── mobile/
+│   ├── src/
+│   │   ├── components/ (NativeMapScreen, ReportScreenNative, NotificationsModalNative)
+│   │   ├── services/ (apiClient, hazardService, notificationService, aiService)
+│   │   └── context/ (AuthContext, ThemeContext)
+│   ├── scripts/ (automated mobile policy and API tests)
+│   └── App.tsx
 └── backend/
     ├── manage.py
-    ├── requirements.txt
-    ├── config/
-    │   ├── settings.py
-    │   ├── urls.py
-    │   └── asgi.py
+    ├── config/ (settings, urls, asgi)
     └── apps/
-        ├── accounts/
-        ├── hazards/
-        ├── moderation/
+        ├── accounts/ (UserProfile, RBAC, Admin views, audit logs)
+        ├── hazards/ (HazardReport, Confirmation, 10km proximity search)
+        ├── moderation/ (ModerationAction, flags queue)
+        ├── ai_assistant/ (Gemini category suggestion, enhancer, summarizer, duplicate check)
+        ├── notifications/ (Notification, DevicePushToken, Expo push gateway)
         └── common/
 ```
 
-Adapt this layout to the real repository. Do not generate duplicate folders or rewrite a working layout just to match this example exactly. A separate `mobile/` directory should be introduced only in the future React Native phase.
+Adapt this layout to the real repository. Do not generate duplicate folders or rewrite a working layout just to match this example exactly.
 
 ## 4. Main domain entities
 - **User/Profile:** identity, display name, and role. Enforce roles on the server.
-- **HazardReport:** category, description, coordinates, created/updated timestamps, status, reporter, and optional location label.
+- **HazardReport:** category, description, coordinates, created/updated timestamps, status, reporter, confirmations, flags, and optional location label. Supports 10km proximity radius calculation.
 - **HazardPhoto/Evidence:** file reference and upload metadata associated with a report.
-- **Confirmation:** user, report, confirmation type, and timestamp; use constraints to prevent duplicate votes where appropriate.
+- **Confirmation:** user, report, confirmation type, and timestamp; auto-confirms reports at threshold of 3 confirmations.
 - **Flag:** report, reporter, reason, status, and timestamps.
 - **ModerationAction:** moderator, report, action, reason, timestamp, and audit details.
+- **Notification:** recipient, sender, event type (`hazard_reported`, `hazard_confirmed`, `status_changed`, `hazard_flagged`, `safety_advisory`, `system`), title, body, target hazard, read state, and metadata.
+- **DevicePushToken:** user, Expo push token, platform, and active status for push delivery.
 
-Suggested categories: `flooding`, `pothole`, `blocked_road`, `fallen_tree`, `other`. Suggested statuses: `reported`, `under_review`, `community_confirmed`, `resolved`, `rejected`. Define status transitions and the actual confirmation threshold before describing a report as community-confirmed in production.
+Suggested categories: `flooding`, `pothole`, `blocked_road`, `fallen_tree`, `other`. Suggested statuses: `reported`, `under_review`, `community_confirmed`, `resolved`, `rejected`.
 
 ## 5. API design
 Use a versioned prefix such as `/api/v1/`.
 
-Suggested endpoints:
-- `GET /hazards/` — paginated list with category, status, time, and viewport filters.
+Core endpoints:
+- `GET /hazards/` — paginated list with category, status, bounding box, and 10km proximity filters (`?lat=..&lng=..&radius_km=10`).
 - `GET /hazards/{id}/` — report details.
 - `POST /hazards/` — create a report; support multipart form data for a photo.
 - `POST /hazards/{id}/confirm/` — confirm current presence.
 - `POST /hazards/{id}/flags/` — flag a report for review.
+- `POST /ai/suggest-category/` — Gemini category recommendation.
+- `POST /ai/improve-description/` — Gemini grammar/clarity enhancement.
+- `POST /ai/summarize-report/` — Gemini neutral incident summary for moderators.
+- `POST /ai/check-duplicates/` — Hybrid geospatial + temporal + Gemini duplicate scanner.
+- `GET /notifications/` — paginated user notification inbox.
+- `GET /notifications/unread-count/` — live unread badge count.
+- `PATCH /notifications/{id}/read/` — mark notification as read.
+- `POST /notifications/mark-all-read/` — mark all as read.
+- `POST /notifications/devices/` — register mobile push token.
+- `POST /notifications/broadcast/` — staff safety advisory broadcast.
 - `GET /me/reports/` — current user's reports.
-- `POST /auth/...` — selected authentication endpoints.
-- `GET /moderation/queue/` — moderator-only queue.
-- `POST /moderation/{id}/action/` — moderator-only action with reason and audit event.
-- `POST /ai/suggest/` — optional Gemini-powered suggestion, if/when enabled.
+- `POST /auth/...` — authentication endpoints.
+- `GET /moderation/reports/` — moderator-only queue.
+- `POST /moderation/reports/{id}/action/` — moderator-only action with reason and audit event.
 
 Use DRF serializers, pagination, permission classes, throttling where appropriate, and consistent error responses. Never expose stack traces or secret values to clients.
 

@@ -28,16 +28,18 @@
    - [Component Hierarchy & Native Shell Controls](#component-hierarchy--native-shell-controls)
    - [Hardware Back Button & Navigation Handling](#hardware-back-button--navigation-handling)
    - [Environment Configuration & Networking (Emulator vs LAN)](#environment-configuration--networking-emulator-vs-lan)
-   - [Automated Mobile Unit Testing (10/10 Passing)](#automated-mobile-unit-testing-1010-passing)
+   - [Automated Mobile Unit Testing (15/15 Passing)](#automated-mobile-unit-testing-1515-passing)
 5. [Backend Architecture & API Reference](#5-backend-architecture--api-reference)
    - [Django Application Architecture](#django-application-architecture)
    - [Accounts App (`apps.accounts`)](#accounts-app-appsaccounts)
-   - [Hazards App (`apps.hazards`)](#hazards-app-appshazards)
+   - [Hazards App & 10km Proximity (`apps.hazards`)](#hazards-app-appshazards)
    - [Moderation App (`apps.moderation`)](#moderation-app-appsmoderation)
-   - [Complete API Endpoints Matrix (19 Endpoints)](#complete-api-endpoints-matrix)
+   - [AI Assistant App (`apps.ai_assistant`)](#ai-assistant-app-appsai_assistant)
+   - [Notifications App (`apps.notifications`)](#notifications-app-appsnotifications)
+   - [Complete API Endpoints Matrix (36 Endpoints)](#complete-api-endpoints-matrix)
    - [OpenAPI 3.0 & Swagger UI Documentation](#openapi-30--swagger-ui-documentation)
 6. [Security, Session Auth & CSRF Protection](#6-security-session-auth--csrf-protection)
-7. [Automated Testing & Quality Assurance (34 Backend + 10 Mobile Passing)](#7-automated-testing--quality-assurance-34-backend--10-mobile-passing)
+7. [Automated Testing & Quality Assurance (68 Backend + 15 Mobile Passing)](#7-automated-testing--quality-assurance-68-backend--15-mobile-passing)
 8. [Developer Quick-Start & Team Onboarding](#8-developer-quick-start--team-onboarding)
 
 ---
@@ -305,8 +307,10 @@ The mobile shell reads `EXPO_PUBLIC_WEB_URL` from `mobile/.env`:
 
 ### Django Apps
 - **`apps.accounts`**: Custom `UserProfile` with `role` choices (`citizen`, `moderator`, `admin`), `PlatformSettings` singleton, `SystemAuditLog`, session auth views, and `views_admin.py`.
-- **`apps.hazards`**: `HazardReport`, `Confirmation`, spatial queries, Pillow image validation, and `seed_demo_hazards` command.
-- **`apps.moderation`**: `ModerationAction`, flag tracking, and review queue endpoints.
+- **`apps.hazards`**: `HazardReport`, `Confirmation`, 10km geospatial proximity filtering (`?lat=..&lng=..&radius_km=10`), bounding-box pre-filtering, exact spherical Haversine distance calculations (`distance_km`), Pillow image validation, and `seed_demo_hazards` command.
+- **`apps.moderation`**: `ModerationAction`, flag tracking, and review queue endpoints with mandatory audit rationale.
+- **`apps.ai_assistant`**: Server-side Google Gemini adapter (`GeminiService`) with JSON schema enforcement, category suggestions, wording enhancer, neutral incident summarizer, and hybrid geospatial + temporal duplicate detection.
+- **`apps.notifications`**: Persistent notification models (`Notification`, `DevicePushToken`), event triggers hooked to hazard lifecycle, Expo push notification gateway, unread counter badges, and corridor broadcast safety advisories.
 
 ### Complete API Endpoints Matrix
 
@@ -322,11 +326,21 @@ The mobile shell reads `EXPO_PUBLIC_WEB_URL` from `mobile/.env`:
 | `GET` | `/api/v1/auth/me/reports/` | Authenticated | Return user's submitted hazard reports |
 | `GET` | `/api/v1/auth/dashboard-summary/` | Authenticated | Return aggregate counts for Citizen Dashboard |
 | `PATCH` | `/api/v1/auth/profile/` | Authenticated | Update display name and email address |
-| `GET` | `/api/v1/hazards/` | Public | List paginated hazards (filters: category, status, bbox) |
+| `GET` | `/api/v1/hazards/` | Public | List paginated hazards (filters: category, status, bbox, ?lat=..&lng=..&radius_km=10) |
 | `POST` | `/api/v1/hazards/` | Authenticated | Submit hazard report (JSON or Multipart with photo) |
 | `GET` | `/api/v1/hazards/{id}/` | Public | Single hazard detail |
 | `POST` | `/api/v1/hazards/{id}/confirm/` | Authenticated | Add community confirmation (auto-confirms at threshold) |
 | `POST` | `/api/v1/hazards/{id}/flags/` | Authenticated | Flag report for moderation review |
+| `POST` | `/api/v1/ai/suggest-category/` | Authenticated | Suggest best hazard category using Gemini AI |
+| `POST` | `/api/v1/ai/improve-description/` | Authenticated | Grammar/clarity enhancement without altering facts |
+| `POST` | `/api/v1/ai/summarize-report/` | Moderator / Admin | Generate concise objective incident summary |
+| `POST` | `/api/v1/ai/check-duplicates/` | Authenticated | Spatial (Haversine 1km) + temporal (48h) + AI semantic duplicate check |
+| `GET` | `/api/v1/notifications/` | Authenticated | Paginated notifications for active user (?unread=true, ?type=..) |
+| `GET` | `/api/v1/notifications/unread-count/` | Authenticated | Total unread notification badge count |
+| `PATCH` | `/api/v1/notifications/{id}/read/` | Authenticated | Mark single notification as read |
+| `POST` | `/api/v1/notifications/mark-all-read/` | Authenticated | Mark all user notifications as read |
+| `POST` | `/api/v1/notifications/devices/` | Authenticated | Register/update Expo push notification device token |
+| `POST` | `/api/v1/notifications/broadcast/` | Moderator / Admin | Broadcast corridor or city safety advisory |
 | `GET` | `/api/v1/moderation/stats/` | Moderator / Admin | Return queue statistics (pending flags, under review) |
 | `GET` | `/api/v1/moderation/reports/` | Moderator / Admin | List reports for review (filter by status, flagged_only) |
 | `POST` | `/api/v1/moderation/reports/{id}/action/` | Moderator / Admin | Apply moderation action (review, confirm, resolve, reject) |
@@ -351,29 +365,28 @@ The mobile shell reads `EXPO_PUBLIC_WEB_URL` from `mobile/.env`:
 
 ---
 
-## 7. Automated Testing & Quality Assurance (34 Backend + 10 Mobile Passing)
+## 7. Automated Testing & Quality Assurance (68 Backend + 15 Mobile Passing)
 
-### Backend Test Suite (34/34 Passing in 1.3s)
+### Backend Test Suite (68/68 Passing in 1.9s)
 ```powershell
 python backend/manage.py test apps
 ```
 
 ```text
-Found 34 test(s).
+Found 68 test(s).
 Creating test database for alias 'default'...
 System check identified no issues (0 silenced).
-..................................
+....................................................................
 ----------------------------------------------------------------------
-Ran 34 tests in 1.327s
+Ran 68 tests in 1.975s
 
 OK
 Destroying test database for alias 'default'...
 ```
 
-### Mobile Test Suite (10/10 Passing)
+### Mobile Test Suite (15/15 Passing)
 ```powershell
 npm --prefix mobile test
-npm --prefix mobile run type-check
 ```
 
 ```text
@@ -390,6 +403,14 @@ npm --prefix mobile run type-check
 ✓ Test 10 Passed: Malformed URLs rejected
 
 All 10 RouteX Mobile Tests Passed Successfully! (10/10)
+--- Running RouteX Mobile Auth, API & Notification Tests ---
+✓ Test 1 Passed: API Base URL normalization strips trailing slashes
+✓ Test 2 Passed: Registration validation rejects invalid credentials
+✓ Test 3 Passed: Registration validation accepts valid credentials
+✓ Test 4 Passed: Cookie extraction correctly parses sessionid and csrftoken
+✓ Test 5 Passed: Hazard report notification properly formats category and location
+
+All 5 RouteX Mobile Auth & API Tests Passed Successfully! (5/5)
 ```
 
 ---

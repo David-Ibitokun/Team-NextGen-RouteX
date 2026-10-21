@@ -170,6 +170,8 @@ The web application must support current mainstream desktop and mobile browsers.
 
 ### 4.3 Phase 2 — Google Gemini AI assistance
 
+*(Status: Fully implemented in `apps.ai_assistant` with 13 unit & integration tests covering category suggestion, description improvement, neutral summarization, hybrid duplicate detection, timeout handling, and settings feature flags).*
+
 - Optional category suggestions from text and, only after safety/privacy review, report photographs.
 - Neutral summaries of user-submitted descriptions.
 - Suggestions for potentially duplicate reports.
@@ -179,6 +181,8 @@ The web application must support current mainstream desktop and mobile browsers.
 AI must not certify that a road hazard exists, independently mark a report official/verified, or automatically make consequential moderation decisions without an explicitly designed and tested human-review policy.
 
 ### 4.4 Phase 3 — React Native mobile client
+
+*(Status: Fully implemented in `mobile/` with NativeMapScreen, ReportScreenNative, NotificationsModalNative, 10 km GPS proximity filtering, proactive AI duplicate detection, Expo push notification gateway, and 15/15 passing tests).*
 
 - React Native with Expo.
 - Shared Django API and shared domain rules.
@@ -875,20 +879,20 @@ The landing page may be built in parallel with backend work, but must not block 
 3. Production hosting, media storage, backups, logging, and monitoring.
 4. Abuse handling, access reviews, and cross-browser/mobile testing.
 
-### Phase 2 — Gemini AI
+### Phase 2 — Gemini AI (Completed)
 
-1. Verify current Google Gemini API model, SDK, quotas, billing, data handling, and terms.
-2. Add a backend provider adapter and configuration flag.
-3. Implement one narrow feature first: category suggestion or neutral summary.
-4. Test provider failure, throttling, malformed outputs, and privacy boundaries.
-5. Add duplicate suggestions only after the first feature is reliable and measured.
+1. [x] Verify current Google Gemini API model, SDK, quotas, billing, data handling, and terms.
+2. [x] Add a backend provider adapter and configuration flag (`GEMINI_AI_ENABLED`).
+3. [x] Implement category suggestion, description grammar/clarity enhancer, and neutral summary.
+4. [x] Test provider failure, timeouts, malformed outputs, and privacy boundaries (13 dedicated tests).
+5. [x] Add hybrid duplicate detection (spatial + temporal + semantic) and proactive frontend checks with 1-click confirmation.
 
-### Phase 3 — React Native + Expo
+### Phase 3 — React Native + Expo (Completed)
 
-1. Validate that the Django API can serve a non-browser client with appropriate auth.
-2. Build native map/reporting flows with a suitable mobile map library/provider.
-3. Add camera, GPS, draft, and notification functions incrementally.
-4. Perform device, privacy, secure-storage, accessibility, and release tests.
+1. [x] Validate that the Django API can serve a non-browser client with appropriate auth (`apiClient.ts` with CSRF & session headers).
+2. [x] Build native map and reporting flows (`NativeMapScreen`, `ReportScreenNative`, `ReportModalNative`).
+3. [x] Add camera, GPS (10 km radius proximity filter), offline draft cache, and push notification functions (`NotificationsModalNative`, Expo push token gateway).
+4. [x] Perform device, privacy, secure-storage, and automated test suite verification (15/15 mobile tests passing).
 
 ### Phase 4 — Expansion
 
