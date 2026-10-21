@@ -382,7 +382,7 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
     setConfirmingCandidateId(candidateId);
     try {
       await confirmHazard(candidateId);
-      notifyHazardConfirmed(candidateId);
+      notifyHazardConfirmed('hazard');
       Alert.alert(
         'Hazard Confirmed',
         'Thank you! You verified this existing hazard for your fellow commuters.',
@@ -1230,7 +1230,7 @@ export const ReportModalNative: React.FC<ReportModalNativeProps> = ({
                       styles.submitButton,
                       { backgroundColor: theme.teal, opacity: submitting ? 0.7 : 1 },
                     ]}
-                    onPress={handleSubmit}
+                    onPress={() => handleSubmit()}
                     disabled={submitting}
                     activeOpacity={0.8}
                   >

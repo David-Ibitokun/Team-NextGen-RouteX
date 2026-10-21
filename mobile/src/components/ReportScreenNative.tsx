@@ -341,7 +341,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
     setConfirmingCandidateId(candidateId);
     try {
       await confirmHazard(candidateId);
-      notifyHazardConfirmed(candidateId);
+      notifyHazardConfirmed('hazard');
       Alert.alert(
         'Hazard Confirmed',
         'Thank you! You verified this existing hazard for your fellow commuters.',
@@ -1240,7 +1240,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
                   styles.submitBtn,
                   { backgroundColor: theme.teal, opacity: submitting ? 0.7 : 1 },
                 ]}
-                onPress={handleSubmit}
+                onPress={() => handleSubmit()}
                 disabled={submitting}
                 activeOpacity={0.8}
               >

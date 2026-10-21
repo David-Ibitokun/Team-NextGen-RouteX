@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -72,6 +73,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -104,9 +106,19 @@ ASGI_APPLICATION = "config.asgi.application"
 
 # Database configuration
 # Supports PostgreSQL via environment variables, with safe SQLite fallback for local development
+database_url = os.environ.get("DATABASE_URL")
 use_postgres = os.environ.get("USE_POSTGRES", "False").lower() in ("true", "1", "yes")
 
-if use_postgres:
+if database_url:
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=database_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True,
+        )
+    }
+elif use_postgres:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
