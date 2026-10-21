@@ -1,0 +1,25 @@
+# Exclude backend and web frontend
+backend/
+frontend/
+docs/
+state/
+*.py
+*.sql
+*.bat
+*.jpg
+.kilo/
+
+# Dependencies and caches
+node_modules/
+**/node_modules/
+.expo/
+**/.expo/
+
+# Native build artifacts and caches (EAS will build freshly)
+**/android/app/build/
+**/android/build/
+**/android/.gradle/
+**/android/app/.cxx/
+**/android/.kotlin/
+**/ios/build/
+**/ios/Pods/

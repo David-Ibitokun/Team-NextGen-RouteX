@@ -11,9 +11,18 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_WEB_URL": "https://team-next-gen-route-x.vercel.app",
+        "EXPO_PUBLIC_API_URL": "https://routex-api-bcfe83a1907c.herokuapp.com/api/v1"
       }
     },
-    "production": {}
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_WEB_URL": "https://team-next-gen-route-x.vercel.app",
+        "EXPO_PUBLIC_API_URL": "https://routex-api-bcfe83a1907c.herokuapp.com/api/v1"
+      }
+    }
   },
   "submit": {
     "production": {}
