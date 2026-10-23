@@ -25,8 +25,9 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter, OpenApiTypes
+from apps.accounts.authentication import RouteXSessionAuthentication
 
-class CsrfExemptSessionAuthentication(SessionAuthentication):
+class CsrfExemptSessionAuthentication(RouteXSessionAuthentication):
     def enforce_csrf(self, request):
         return  # Allow mobile and web clients to authenticate via session without CSRF mismatch on account actions
 
@@ -108,6 +109,7 @@ def csrf_token_view(request):
     ],
 )
 @api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication, BasicAuthentication])
 @permission_classes([AllowAny])
 @throttle_classes([RegisterRateThrottle])
 def register_view(request):
@@ -151,6 +153,7 @@ def register_view(request):
     ],
 )
 @api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication, BasicAuthentication])
 @permission_classes([AllowAny])
 @throttle_classes([LoginRateThrottle])
 def login_view(request):
@@ -211,6 +214,7 @@ def login_view(request):
     responses={200: {"type": "object", "properties": {"detail": {"type": "string"}}}},
 )
 @api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication, BasicAuthentication])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
     """Log out the current user and invalidate the session."""

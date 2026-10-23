@@ -17,6 +17,8 @@ function getCookie(name) {
   return cookieValue;
 }
 
+let inMemoryCsrfToken = null;
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
@@ -30,7 +32,7 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const method = (config.method || "").toLowerCase();
   if (!["get", "head", "options"].includes(method)) {
-    const csrfToken = getCookie("csrftoken");
+    const csrfToken = getCookie("csrftoken") || inMemoryCsrfToken;
     if (csrfToken) {
       config.headers["X-CSRFToken"] = csrfToken;
     }
@@ -43,8 +45,15 @@ export const authService = {
    * Fetch CSRF token and set session cookie
    */
   async getCsrfToken() {
-    const response = await apiClient.get("/auth/csrf/");
-    return response.data;
+    try {
+      const response = await apiClient.get("/auth/csrf/");
+      if (response?.data?.csrfToken) {
+        inMemoryCsrfToken = response.data.csrfToken;
+      }
+      return response.data;
+    } catch {
+      return null;
+    }
   },
 
   /**
