@@ -512,6 +512,33 @@ def seed():
     )
     print("  -> Administrative audit events logged")
 
+    # Synchronize PostgreSQL sequence counters so newly created records don't collide with seeded IDs
+    from django.db import connection
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                DO $$
+                DECLARE
+                    r RECORD;
+                    max_id BIGINT;
+                BEGIN
+                    FOR r IN (
+                        SELECT c.relname AS table_name, a.attname AS column_name, s.relname AS seq_name
+                        FROM pg_class s
+                        JOIN pg_depend d ON d.objid = s.oid
+                        JOIN pg_class c ON d.refobjid = c.oid
+                        JOIN pg_attribute a ON (d.refobjid = a.attrelid AND d.refobjsubid = a.attnum)
+                        WHERE s.relkind = 'S'
+                    ) LOOP
+                        EXECUTE format('SELECT COALESCE(MAX(%I), 0) FROM %I', r.column_name, r.table_name) INTO max_id;
+                        IF max_id > 0 THEN
+                            EXECUTE format('SELECT setval(%L, %s, false)', r.seq_name, max_id + 1);
+                        END IF;
+                    END LOOP;
+                END $$;
+            """)
+        print("  -> PostgreSQL sequence counters synchronized")
+
     print("\n" + "=" * 65)
     print("       DATABASE SEEDING COMPLETED SUCCESSFULLY!")
     print("=" * 65)

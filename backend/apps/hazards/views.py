@@ -285,7 +285,23 @@ class HazardReportViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         reporter = self.request.user if self.request.user.is_authenticated else None
-        report = serializer.save(reporter=reporter)
+        try:
+            report = serializer.save(reporter=reporter)
+        except Exception as exc:
+            from django.db import connection, IntegrityError
+            if isinstance(exc, IntegrityError) and connection.vendor == "postgresql":
+                logger.warning("PostgreSQL primary key sequence collision detected. Resynchronizing hazards_hazardreport sequence...")
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT setval(
+                            pg_get_serial_sequence('hazards_hazardreport', 'id'),
+                            COALESCE((SELECT MAX(id) FROM hazards_hazardreport), 1) + 1,
+                            false
+                        );
+                    """)
+                report = serializer.save(reporter=reporter)
+            else:
+                raise
         if reporter:
             try:
                 from apps.notifications.services import NotificationService
