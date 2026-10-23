@@ -21,7 +21,11 @@ from .serializers import (
     HazardFlagSerializer,
 )
 
+import logging
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from apps.accounts.authentication import RouteXSessionAuthentication
+
+logger = logging.getLogger(__name__)
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculate the great circle distance between two points in kilometers."""
@@ -37,7 +41,7 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
     return earth_radius_km * c
 
-class CsrfExemptSessionAuthentication(SessionAuthentication):
+class CsrfExemptSessionAuthentication(RouteXSessionAuthentication):
     def enforce_csrf(self, request):
         return  # Allow mobile and web clients to submit and confirm reports without CSRF failures
 
@@ -269,6 +273,15 @@ class HazardReportViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
 
         return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except drf_serializers.ValidationError:
+            raise
+        except Exception as exc:
+            logger.exception("Failed to create hazard report: %s", exc)
+            raise
 
     def perform_create(self, serializer):
         reporter = self.request.user if self.request.user.is_authenticated else None
