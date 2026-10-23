@@ -21,6 +21,7 @@ import {
   PlusCircle,
   MapPin,
   Shield,
+  ShieldCheck,
   Sliders,
   LogOut,
   UserCircle,
