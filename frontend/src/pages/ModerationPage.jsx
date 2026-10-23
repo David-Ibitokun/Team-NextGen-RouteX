@@ -220,7 +220,15 @@ export function ModerationPage() {
         setActionModalOpen(false);
       }, 1000);
     } catch (err) {
-      setActionError("Unable to apply moderation action. Please check your input and try again.");
+            const serverMsg =
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        (err.response?.data && typeof err.response.data === "object"
+          ? Object.entries(err.response.data)
+              .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+              .join(" | ")
+          : null);
+      setActionError(serverMsg || "Unable to apply moderation action. Please check your input and try again.");
     } finally {
       setSubmittingAction(false);
     }

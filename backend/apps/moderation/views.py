@@ -1,5 +1,15 @@
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+import logging
+from django.db import connection, IntegrityError
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.authentication import BasicAuthentication
+from apps.accounts.authentication import RouteXSessionAuthentication
+
+logger = logging.getLogger(__name__)
+
+class CsrfExemptSessionAuthentication(RouteXSessionAuthentication):
+    def enforce_csrf(self, request):
+        return
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
