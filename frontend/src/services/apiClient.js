@@ -18,6 +18,24 @@ function getCookie(name) {
 }
 
 let inMemoryCsrfToken = null;
+const SESSION_STORAGE_KEY = "routex_session_id";
+
+export function getSessionId() {
+  if (typeof window !== "undefined" && window.localStorage) {
+    return window.localStorage.getItem(SESSION_STORAGE_KEY);
+  }
+  return null;
+}
+
+export function setSessionId(id) {
+  if (typeof window !== "undefined" && window.localStorage) {
+    if (id) {
+      window.localStorage.setItem(SESSION_STORAGE_KEY, id);
+    } else {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  }
+}
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -30,6 +48,11 @@ export const apiClient = axios.create({
 
 // Attach CSRF token to unsafe HTTP methods
 apiClient.interceptors.request.use((config) => {
+  const sessionId = getSessionId() || getCookie("sessionid");
+  if (sessionId) {
+    config.headers["X-Session-ID"] = sessionId;
+    config.headers["Authorization"] = `Session ${sessionId}`;
+  }
   const method = (config.method || "").toLowerCase();
   if (!["get", "head", "options"].includes(method)) {
     const csrfToken = getCookie("csrftoken") || inMemoryCsrfToken;
@@ -63,6 +86,9 @@ export const authService = {
   async register(payload) {
     await this.getCsrfToken();
     const response = await apiClient.post("/auth/register/", payload);
+    if (response?.data?.session_id) {
+      setSessionId(response.data.session_id);
+    }
     return response.data;
   },
 
@@ -73,6 +99,9 @@ export const authService = {
   async login(payload) {
     await this.getCsrfToken();
     const response = await apiClient.post("/auth/login/", payload);
+    if (response?.data?.session_id) {
+      setSessionId(response.data.session_id);
+    }
     return response.data;
   },
 
@@ -80,8 +109,12 @@ export const authService = {
    * Log out active session
    */
   async logout() {
-    const response = await apiClient.post("/auth/logout/");
-    return response.data;
+    try {
+      const response = await apiClient.post("/auth/logout/");
+      return response.data;
+    } finally {
+      setSessionId(null);
+    }
   },
 
   /**
@@ -96,9 +129,13 @@ export const authService = {
    * Permanently delete the authenticated user's account
    */
   async deleteAccount() {
-    await this.getCsrfToken();
-    const response = await apiClient.delete("/auth/me/delete/");
-    return response.data;
+    try {
+      await this.getCsrfToken();
+      const response = await apiClient.delete("/auth/me/delete/");
+      return response.data;
+    } finally {
+      setSessionId(null);
+    }
   },
 
   /**

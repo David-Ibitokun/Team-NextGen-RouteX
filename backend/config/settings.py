@@ -258,6 +258,11 @@ SPECTACULAR_SETTINGS = {
 cors_raw = os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000")
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_raw.split(",") if origin.strip()]
 CORS_ALLOW_CREDENTIALS = True
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "x-session-id",
+    "x-csrftoken",
+]
 
 csrf_raw = os.environ.get("CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000")
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_raw.split(",") if origin.strip()]
