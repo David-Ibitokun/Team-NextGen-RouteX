@@ -33,6 +33,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useAlert } from '../context/AlertContext';
 import { RouteXLogoMark } from './RouteXLogoMark';
 import { authService } from '../services/apiClient';
 
@@ -50,6 +51,7 @@ export const AuthModalNative: React.FC<AuthModalNativeProps> = ({
   const insets = useSafeAreaInsets();
   const { isDark, theme } = useTheme();
   const { user, isAuthenticated, login, register, logout } = useAuth();
+  const { showAlert } = useAlert();
   const { height: windowHeight } = useWindowDimensions();
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -216,7 +218,7 @@ export const AuthModalNative: React.FC<AuthModalNativeProps> = ({
   };
 
   const handleLogout = async () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out of RouteX?', [
+    showAlert('Sign Out', 'Are you sure you want to sign out of RouteX?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',

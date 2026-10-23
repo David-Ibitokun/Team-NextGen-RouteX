@@ -13,6 +13,7 @@ import {
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { AlertProvider, useAlert } from './src/context/AlertContext';
 import { AppHeaderNative } from './src/components/AppHeaderNative';
 import { MobileBottomNavNative, ActiveTab } from './src/components/MobileBottomNavNative';
 import { HazardFiltersNative } from './src/components/HazardFiltersNative';
@@ -41,6 +42,7 @@ type AppView = ActiveTab | InfoScreenType;
 function RouteXNativeMain() {
   const { isDark, theme } = useTheme();
   const { isAuthenticated, isModerator, isAdmin } = useAuth();
+  const { showAlert } = useAlert();
 
   const [activeTab, setActiveTab] = useState<AppView>('list');
   const [activeDashboard, setActiveDashboard] = useState<'citizen' | 'moderator' | 'admin'>('citizen');
@@ -88,7 +90,7 @@ function RouteXNativeMain() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setLocating(false);
-        Alert.alert(
+        showAlert(
           'Location Permission Required',
           `RouteX needs access to your location to find road hazards within ${nearMeRadiusKm} km. Please grant location permission in your device settings.`
         );
@@ -106,7 +108,7 @@ function RouteXNativeMain() {
       setNearMeActive(true);
     } catch (err: any) {
       console.warn('[RouteX] Geolocation error:', err?.message || err);
-      Alert.alert(
+      showAlert(
         'Location Unavailable',
         'Unable to detect your device coordinates. Please ensure GPS/location services are turned on.'
       );
@@ -189,9 +191,9 @@ function RouteXNativeMain() {
         setActiveTab('list');
         return true;
       }
-      Alert.alert('Exit RouteX', 'Are you sure you want to exit?', [
+      showAlert('Exit RouteX', 'Are you sure you want to exit?', [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Exit', onPress: () => BackHandler.exitApp() },
+        { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() },
       ]);
       return true;
     };
@@ -432,6 +434,14 @@ function RouteXNativeMain() {
                 renderItem={({ item }) => (
                   <HazardCardNative
                     hazard={item}
+                    onPress={() => {
+                      setSelectedHazardToView(item);
+                      setActiveTab('map');
+                    }}
+                    onLocateOnMap={() => {
+                      setSelectedHazardToView(item);
+                      setActiveTab('map');
+                    }}
                     onConfirm={() => handleConfirm(item.id)}
                   />
                 )}
@@ -497,7 +507,9 @@ export default function App() {
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <ThemeProvider>
         <AuthProvider>
-          <RouteXNativeMain />
+          <AlertProvider>
+            <RouteXNativeMain />
+          </AlertProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

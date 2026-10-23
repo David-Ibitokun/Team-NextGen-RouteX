@@ -9,9 +9,10 @@ interface HazardCardNativeProps {
   hazard: HazardItem;
   onPress?: () => void;
   onConfirm?: () => void;
+  onLocateOnMap?: () => void;
 }
 
-export const HazardCardNative: React.FC<HazardCardNativeProps> = ({ hazard, onPress, onConfirm }) => {
+export const HazardCardNative: React.FC<HazardCardNativeProps> = ({ hazard, onPress, onConfirm, onLocateOnMap }) => {
   const { isDark, theme } = useTheme();
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const categoryConfig = getCategoryConfig(hazard.category);
@@ -139,6 +140,18 @@ export const HazardCardNative: React.FC<HazardCardNativeProps> = ({ hazard, onPr
           </View>
 
           <View style={styles.actions}>
+            {onLocateOnMap ? (
+              <TouchableOpacity
+                style={[styles.locateMapBtn, { backgroundColor: isDark ? '#0C2E42' : '#E0F2FE', borderColor: theme.teal }]}
+                onPress={onLocateOnMap}
+                activeOpacity={0.7}
+                accessibilityLabel="Locate hazard on map"
+              >
+                <MapPin size={12} color={theme.teal} />
+                <Text style={[styles.locateMapText, { color: theme.teal }]}>Locate on Map</Text>
+              </TouchableOpacity>
+            ) : null}
+
             <TouchableOpacity
               style={[styles.confirmBtn, { backgroundColor: isDark ? '#13353A' : '#E6F4F6', borderColor: theme.teal }]}
               onPress={onConfirm}
@@ -263,6 +276,20 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  locateMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+  },
+  locateMapText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   confirmBtn: {
     flexDirection: 'row',

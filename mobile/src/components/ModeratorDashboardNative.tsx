@@ -39,6 +39,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useAlert } from '../context/AlertContext';
 import { HazardItem } from '../constants/hazardTypes';
 import { moderationService } from '../services/apiClient';
 import {
@@ -68,6 +69,7 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
   const insets = useSafeAreaInsets();
   const { isDark, theme } = useTheme();
   const { user, isModerator, isAdmin } = useAuth();
+  const { showAlert } = useAlert();
   const { width: windowWidth } = useWindowDimensions();
 
   const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
@@ -261,7 +263,7 @@ export const ModeratorDashboardNative: React.FC<ModeratorDashboardNativeProps> =
       setCardAiSummaries((prev) => ({ ...prev, [reportId]: res }));
     } catch (err: any) {
       const isAuth = err?.status === 401 || err?.status === 403 || err?.data?.code === 'not_authenticated' || err?.data?.detail?.toLowerCase().includes('not authenticated') || err?.message?.toLowerCase().includes('not authenticated');
-      Alert.alert('AI Summarizer', isAuth ? "AI summarizer won't work because you are not authenticated. Please sign in to your RouteX account." : (err?.data?.error || err?.data?.detail || err?.message || 'AI incident summarizer is temporarily unavailable.'));
+      showAlert('AI Summarizer', isAuth ? "AI summarizer won't work because you are not authenticated. Please sign in to your RouteX account." : (err?.data?.error || err?.data?.detail || err?.message || 'AI incident summarizer is temporarily unavailable.'));
     } finally {
       setLoadingCardSummary(null);
     }

@@ -44,6 +44,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useAlert } from '../context/AlertContext';
 import { HazardItem } from '../constants/hazardTypes';
 import { authService, moderationService, adminService } from '../services/apiClient';
 
@@ -65,6 +66,7 @@ export const DashboardScreenNative: React.FC<DashboardScreenNativeProps> = ({
   const insets = useSafeAreaInsets();
   const { isDark, theme } = useTheme();
   const { user, isAuthenticated, isAdmin, isModerator, logout, refreshMe } = useAuth();
+  const { showAlert } = useAlert();
   const { width: windowWidth } = useWindowDimensions();
 
   const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
@@ -1008,7 +1010,7 @@ export const DashboardScreenNative: React.FC<DashboardScreenNativeProps> = ({
               <TouchableOpacity
                 style={[styles.signOutOutlineBtn, { borderColor: '#F87171', marginTop: 10 }]}
                 onPress={() => {
-                  Alert.alert('Sign Out', 'Sign out of your current RouteX session?', [
+                  showAlert('Sign Out', 'Sign out of your current RouteX session?', [
                     { text: 'Cancel', style: 'cancel' },
                     { text: 'Sign Out', style: 'destructive', onPress: logout },
                   ]);
@@ -1187,7 +1189,7 @@ export const DashboardScreenNative: React.FC<DashboardScreenNativeProps> = ({
             <TouchableOpacity
               style={[styles.primaryActionBtn, { backgroundColor: '#818CF8', marginTop: 12 }]}
               onPress={() =>
-                Alert.alert(
+                showAlert(
                   'Admin Operational Status',
                   `Platform backend: Active & Synchronized\nThreshold: ${adminSettings.confirmation_threshold || 3} votes\nWindow: ${adminSettings.freshness_hours || 48} hours`
                 )

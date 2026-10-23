@@ -31,6 +31,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useAlert } from '../context/AlertContext';
 import { BRAND } from '../theme/colors';
 import { RouteXLogoMark } from './RouteXLogoMark';
 
@@ -65,6 +66,7 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
 }) => {
   const { isDark, toggleTheme, theme } = useTheme();
   const { user, isAuthenticated, isAdmin, isModerator, logout } = useAuth();
+  const { showAlert } = useAlert();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => setMobileMenuOpen((prev) => !prev);
@@ -72,7 +74,7 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
 
   const handleSignOut = () => {
     closeMobileMenu();
-    Alert.alert('Sign Out', 'Are you sure you want to sign out of RouteX?', [
+    showAlert('Sign Out', 'Are you sure you want to sign out of RouteX?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
@@ -237,17 +239,19 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
           >
             {/* Top Navigation Links */}
             <View style={styles.drawerNav}>
-              {/* Citizen Dashboard */}
-              <TouchableOpacity
-                style={styles.navItem}
-                onPress={() => handleDashboardPress('citizen')}
-                activeOpacity={0.7}
-              >
-                <LayoutDashboard size={18} color="#2DD4BF" />
-                <Text style={[styles.navItemText, { color: '#2DD4BF' }]}>
-                  Citizen Dashboard
-                </Text>
-              </TouchableOpacity>
+              {/* Citizen Dashboard (Only available when authenticated) */}
+              {isAuthenticated && (
+                <TouchableOpacity
+                  style={styles.navItem}
+                  onPress={() => handleDashboardPress('citizen')}
+                  activeOpacity={0.7}
+                >
+                  <LayoutDashboard size={18} color="#2DD4BF" />
+                  <Text style={[styles.navItemText, { color: '#2DD4BF' }]}>
+                    Citizen Dashboard
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               {/* Moderator Queue (if Moderator or Admin) */}
               {isModerator && (

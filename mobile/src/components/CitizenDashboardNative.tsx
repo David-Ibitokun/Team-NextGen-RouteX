@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -38,6 +40,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useAlert } from '../context/AlertContext';
 import { HazardItem } from '../constants/hazardTypes';
 import { authService } from '../services/apiClient';
 import { PaginationControlsNative } from './PaginationControlsNative';
@@ -60,6 +63,7 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
 }) => {
   const { isDark, theme } = useTheme();
   const { user, isAuthenticated, logout, deleteAccount, refreshMe } = useAuth();
+  const { showAlert } = useAlert();
   const { width: windowWidth } = useWindowDimensions();
 
   const [activeTab, setActiveTab] = useState<TabType>('reports');
@@ -155,7 +159,7 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    showAlert(
       'Delete Account',
       'Permanently delete your RouteX account and profile? This cannot be undone. Your submitted road reports will remain publicly useful without your account attribution.',
       [
@@ -221,12 +225,18 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
   };
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: theme.background }]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
       {/* 1. Welcome User Banner */}
       <View style={[styles.welcomeCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <View style={styles.welcomeTop}>
@@ -931,7 +941,7 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
               <TouchableOpacity
                 style={[styles.signOutOutlineBtn, { borderColor: '#F87171', marginTop: 10 }]}
                 onPress={() => {
-                  Alert.alert('Sign Out', 'Sign out of your current RouteX session?', [
+                  showAlert('Sign Out', 'Sign out of your current RouteX session?', [
                     { text: 'Cancel', style: 'cancel' },
                     { text: 'Sign Out', style: 'destructive', onPress: logout },
                   ]);
@@ -968,7 +978,8 @@ export const CitizenDashboardNative: React.FC<CitizenDashboardNativeProps> = ({
           onClose={() => setSelectedPreviewImage(null)}
         />
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -979,7 +990,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 14,
     gap: 14,
-    paddingBottom: 36,
+    paddingBottom: 160,
   },
   welcomeCard: {
     borderRadius: 16,

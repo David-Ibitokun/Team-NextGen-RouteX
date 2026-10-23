@@ -258,6 +258,10 @@ export function MapPage() {
                     setSelectedHazard(h);
                     setMobileTab("map");
                   }}
+                  onViewOnMap={(h) => {
+                    setSelectedHazard(h);
+                    setMobileTab("map");
+                  }}
                 />
               ))}
           </div>

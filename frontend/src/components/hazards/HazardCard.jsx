@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { ThumbsUp, Maximize2, Navigation } from "lucide-react";
+import { ThumbsUp, Maximize2, Navigation, MapPin } from "lucide-react";
 import { CategoryBadge } from "./CategoryBadge";
 import { FreshnessBadge } from "./FreshnessBadge";
 import { getStatusBadgeStyle } from "../../utils/hazardConstants";
 import { ImageLightboxModal } from "../common/ImageLightboxModal";
 
-export function HazardCard({ hazard, isSelected = false, onSelect }) {
+export function HazardCard({ hazard, isSelected = false, onSelect, onViewOnMap }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const statusStyle = getStatusBadgeStyle(hazard.status);
   const photoUri = hazard.photo || hazard.photo_url;
@@ -70,6 +70,23 @@ export function HazardCard({ hazard, isSelected = false, onSelect }) {
           <FreshnessBadge freshness={hazard.freshness} createdAt={hazard.created_at} />
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onViewOnMap) {
+                  onViewOnMap(hazard);
+                } else if (onSelect) {
+                  onSelect(hazard);
+                }
+              }}
+              className="inline-flex items-center gap-1 font-semibold text-xs text-[#087F8C] dark:text-teal-400 hover:text-[#06636d] dark:hover:text-teal-300 transition-colors px-2 py-0.5 rounded-md hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-teal-200/60 dark:border-teal-800/60"
+              title="Locate on map"
+              aria-label="Locate hazard on map"
+            >
+              <MapPin className="w-3 h-3 text-[#087F8C] dark:text-teal-400" />
+              <span>Locate on Map</span>
+            </button>
             {hazard.is_demo && (
               <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
                 Demo

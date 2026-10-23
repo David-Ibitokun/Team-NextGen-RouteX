@@ -117,6 +117,10 @@ export function HomePage() {
                     setSelectedHazard(h);
                     setMobileTab("map");
                   }}
+                  onViewOnMap={(h) => {
+                    setSelectedHazard(h);
+                    setMobileTab("map");
+                  }}
                 />
               ))}
           </div>

@@ -38,6 +38,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useAlert } from '../context/AlertContext';
 import { HAZARD_CATEGORIES } from '../constants/hazardTypes';
 import { submitHazard, confirmHazard } from '../services/hazardService';
 import { notifyHazardReported, notifyHazardConfirmed } from '../services/notificationService';
@@ -73,6 +74,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
   const { isDark, theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated } = useAuth();
+  const { showAlert } = useAlert();
 
   const [category, setCategory] = useState('flooding');
   const [locationName, setLocationName] = useState('');
@@ -175,7 +177,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
       const authMessage = `AI ${featureName} won't work because you are not authenticated. Sign in to your RouteX account to use AI assistance.`;
       setAiNotice(authMessage);
       if (onOpenAuth) {
-        Alert.alert(
+        showAlert(
           'Sign In Required for AI',
           `AI ${featureName} won't work because you are not authenticated.\n\nRouteX AI features require an authenticated account to prevent automated abuse and manage query limits. Would you like to sign in now?`,
           [
@@ -216,7 +218,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
         : (err?.data?.error || err?.data?.detail || err?.message || 'AI category suggestion is temporarily unavailable.');
       setAiNotice(msg);
       if (isAuthErr && onOpenAuth) {
-        Alert.alert(
+        showAlert(
           'Sign In Required for AI',
           "AI category suggestion won't work because you are not authenticated. Would you like to sign in now?",
           [
@@ -257,7 +259,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
         : (err?.data?.error || err?.data?.detail || err?.message || 'AI wording helper is temporarily unavailable.');
       setAiNotice(msg);
       if (isAuthErr && onOpenAuth) {
-        Alert.alert(
+        showAlert(
           'Sign In Required for AI',
           "AI wording refinement won't work because you are not authenticated. Would you like to sign in now?",
           [
@@ -308,7 +310,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
         : (err?.data?.error || err?.data?.detail || err?.message || 'Duplicate scanner is temporarily unavailable.');
       setAiNotice(msg);
       if (isAuthErr && onOpenAuth) {
-        Alert.alert(
+        showAlert(
           'Sign In Required for AI',
           "AI duplicate scanning won't work because you are not authenticated. Would you like to sign in now?",
           [
@@ -325,7 +327,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
   const handleConfirmCandidate = async (candidateId: number) => {
     if (!isAuthenticated) {
       if (onOpenAuth) {
-        Alert.alert(
+        showAlert(
           'Sign In Required',
           'Please sign in to upvote and confirm existing road hazards.',
           [
@@ -334,7 +336,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
           ]
         );
       } else {
-        Alert.alert('Sign In Required', 'Please sign in to confirm existing road hazards.');
+        showAlert('Sign In Required', 'Please sign in to confirm existing road hazards.');
       }
       return;
     }
@@ -343,14 +345,14 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
     try {
       await confirmHazard(candidateId);
       notifyHazardConfirmed('hazard');
-      Alert.alert(
+      showAlert(
         'Hazard Confirmed',
         'Thank you! You verified this existing hazard for your fellow commuters.',
         [{ text: 'OK', onPress: onSuccess }]
       );
     } catch (err: any) {
       const msg = err?.data?.detail || err?.message || 'Could not confirm this hazard right now.';
-      Alert.alert('Error', msg);
+      showAlert('Error', msg);
     } finally {
       setConfirmingCandidateId(null);
     }
@@ -370,7 +372,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
       setLatitude(lat);
       setLongitude(lng);
     } else {
-      Alert.alert('Invalid Coordinates', 'Please enter valid latitude (-90 to 90) and longitude (-180 to 180).');
+      showAlert('Invalid Coordinates', 'Please enter valid latitude (-90 to 90) and longitude (-180 to 180).');
     }
   };
 
@@ -383,13 +385,13 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
   };
 
   const handlePickPhoto = async () => {
-    Alert.alert('Attach Photo Evidence', 'Take a new photo or select from your camera roll:', [
+    showAlert('Attach Photo Evidence', 'Take a new photo or select from your camera roll:', [
       {
         text: 'Camera',
         onPress: async () => {
           const { status } = await ImagePicker.requestCameraPermissionsAsync();
           if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Camera permission is required to capture photos.');
+            showAlert('Permission Denied', 'Camera permission is required to capture photos.');
             return;
           }
           const result = await ImagePicker.launchCameraAsync({
@@ -409,7 +411,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
         onPress: async () => {
           const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
           if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Media library permission is required to select photos.');
+            showAlert('Permission Denied', 'Media library permission is required to select photos.');
             return;
           }
           const result = await ImagePicker.launchImageLibraryAsync({
@@ -450,7 +452,7 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
     }
 
     if (!bypassDuplicateCheck && !dismissedDuplicates && duplicateCheckResult?.is_possible_duplicate) {
-      Alert.alert(
+      showAlert(
         'Similar Hazard Reported Nearby',
         'A matching road hazard was recently reported within 1km. You can confirm the existing report to help it gain verification or proceed with submitting yours.',
         [
