@@ -10,12 +10,21 @@ import { ResetPasswordPage } from "../pages/ResetPasswordPage";
 import { CustomerDashboardPage } from "../pages/CustomerDashboardPage";
 import { ModerationPage } from "../pages/ModerationPage";
 import { AdminDashboardPage } from "../pages/AdminDashboardPage";
+import { PrivacyPolicyPage } from "../pages/PrivacyPolicyPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <LandingPage />,
+  },
+  {
+    path: "/privacy",
+    element: <PrivacyPolicyPage defaultTab="privacy" />,
+  },
+  {
+    path: "/terms",
+    element: <PrivacyPolicyPage defaultTab="terms" />,
   },
   {
     path: "/map",

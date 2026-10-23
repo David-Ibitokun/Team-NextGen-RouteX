@@ -233,7 +233,7 @@ These capabilities are not promised by the MVP and require product and technical
 - **FR-LAND-008 (P0):** It shall not display fake live statistics, fake testimonials, fabricated partners, or invented road hazards.
 - **FR-LAND-009 (P0):** The page shall be responsive and keyboard accessible.
 - **FR-LAND-010 (P1):** The page should include an FAQ covering reports, freshness, photos, location permission, and the meaning of community confirmation.
-- **FR-LAND-011 (P1):** Add privacy, terms, and contact links only when genuine pages and real contact details exist.
+- **FR-LAND-011 (P1):** Add privacy, terms, and contact links only when genuine pages and real contact details exist. *(Satisfied: Dedicated `/privacy` and `/terms` routes, mobile native `InfoScreenNative` privacy view, and contact `privacy@routex.org`).*
 
 ### 5.2 Navigation and application layout
 
@@ -613,7 +613,7 @@ Implementation requirements:
 - **NFR-PRIV-003:** Do not track background location in the MVP.
 - **NFR-PRIV-004:** Collect only account and report information needed for the service.
 - **NFR-PRIV-005:** Do not publicly expose email addresses or other private account details through report serializers.
-- **NFR-PRIV-006:** Define data retention, account deletion, photo handling, and privacy-contact processes before a public launch.
+- **NFR-PRIV-006:** Define data retention, account deletion, photo handling, and privacy-contact processes before a public launch. *(Satisfied: Client-side EXIF/GPS stripping via WebP canvas re-encoding, self-service account deletion endpoint `POST /api/v1/auth/delete-account/`, anonymized hazard preservation via `on_delete=models.SET_NULL`, and privacy contact `privacy@routex.org`).*
 - **NFR-PRIV-007:** Document data transmitted to external map, email, or future AI providers.
 
 ### 9.3 Performance and scalability
@@ -923,7 +923,7 @@ These decisions do not prevent the basic MVP from being built, but must be resol
 6. Maximum photo size, supported formats, metadata removal, and retention.
 7. Production tile provider and any provider/geocoding/routing service selected.
 8. Hosting provider, database backup plan, and media storage durability.
-9. Privacy policy, terms of use, abuse-handling contact, and incident response process.
+9. Privacy policy, terms of use, abuse-handling contact, and incident response process. *(Resolved: Implemented at `/privacy` and `/terms`, mobile native view in `InfoScreenNative`, contact `privacy@routex.org`, self-service account deletion, and EXIF metadata scrubbing).*
 10. Google Gemini model, quota/cost controls, provider data handling, and feature-specific human review policy.
 11. Mobile authentication, notification consent, data retention, offline draft behaviour, and release/distribution strategy.
 12. The criteria for expanding to additional regions.

@@ -44,6 +44,7 @@
 - [ ] Expand to additional regions after the initial service has reliable data and moderation.
 
 ## Done
+- [x] **N14 — Data Privacy, Terms of Service & Privacy Transparency Disclosures:** Implemented comprehensive `/privacy` & `/terms` route, mobile native `InfoScreenNative` privacy view, in-form privacy notices on `ReportHazardForm` & `ReportScreenNative`, registration consent on `RegisterPage` & `AuthModalNative`, EXIF metadata stripping, and self-service account deletion transparency.
 - [x] **N11 — Initial Mobile Application (Expo React Native Shell):** Created `mobile/` app with Expo SDK 58, TypeScript, `react-native-webview`, safe area provider, RouteX branding, navigation policy, and error recovery.
 - [x] Team name selected: NextGen.
 - [x] Product name selected: RouteX.

@@ -137,8 +137,11 @@ Use DRF serializers, pagination, permission classes, throttling where appropriat
 - Validate coordinates, text sizes, categories, file types, file sizes, and permissions on the server.
 - Protect moderation actions with role checks and audit history.
 - Apply sensible throttling to reporting, confirmation, flagging, and AI endpoints.
-- Request location only when needed. Do not add background tracking to the MVP.
-- Define access and retention rules for photos and reporter data before public launch.
+- **Location & Background Tracking:** Geolocation requested only on-demand (foreground) for the 10km proximity filter and map pin placement. Zero background location tracking.
+- **Client-Side EXIF/GPS Scrubbing:** Images are converted to WebP via HTML5 canvas, effectively eliminating camera models, timestamps, and GPS coordinates before network upload.
+- **AI Data Isolation:** Google Gemini receives only raw hazard description text; no usernames, emails, user IDs, or IPs are transmitted.
+- **Self-Service Erasure & Anonymization:** Users can delete their account at `POST /api/v1/auth/delete-account/`. `User` and `UserProfile` are permanently destroyed; hazard markers remain to keep roads safe for fellow commuters, but are permanently anonymized (`reporter=NULL`).
+- **Dedicated Privacy Policy & Terms:** Fully accessible at `/privacy` and `/terms` on the web, and natively in mobile `InfoScreenNative`. In-form privacy micro-notices remind users before reporting or creating an account. Official contact: `privacy@routex.org`.
 
 ## 8. Future phase: Google Gemini AI
 - Call Google Gemini from the Django backend through a small adapter/service module.

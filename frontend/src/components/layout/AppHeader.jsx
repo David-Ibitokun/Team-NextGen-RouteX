@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   CircleHelp,
   Info,
+  ShieldCheck,
 } from "lucide-react";
 import { RouteXLogo } from "../common/RouteXLogo";
 import { useTheme } from "../../context/ThemeContext";
@@ -137,6 +138,16 @@ export function AppHeader({ onReportClick }) {
             >
               How to use
             </a>
+            <Link
+              to="/privacy"
+              className={`hover:text-white transition-colors py-1.5 px-2 rounded-md ${
+                location.pathname === "/privacy" || location.pathname === "/terms"
+                  ? "text-teal-400 font-semibold bg-slate-800/60"
+                  : "hover:bg-slate-800/40"
+              }`}
+            >
+              Data & Privacy
+            </Link>
             <Link
               to="/map"
               className={`flex items-center gap-1.5 transition-colors py-1.5 px-2 rounded-md ${
@@ -415,6 +426,15 @@ export function AppHeader({ onReportClick }) {
               <CircleHelp className="w-4 h-4 text-slate-400" />
               How to use
             </a>
+
+            <Link
+              to="/privacy"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 text-slate-200"
+            >
+              <ShieldCheck className="w-4 h-4 text-teal-400" />
+              <span>Data & Privacy Policy</span>
+            </Link>
             
             <Link
               to="/map"

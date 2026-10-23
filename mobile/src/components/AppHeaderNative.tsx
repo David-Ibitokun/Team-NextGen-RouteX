@@ -45,6 +45,7 @@ export interface AppHeaderNativeProps {
   onOpenMap?: () => void;
   onOpenAbout?: () => void;
   onOpenHowToUse?: () => void;
+  onOpenPrivacy?: () => void;
 }
 
 export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
@@ -59,6 +60,7 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
   onOpenMap,
   onOpenAbout,
   onOpenHowToUse,
+  onOpenPrivacy,
 }) => {
   const { isDark, toggleTheme, theme } = useTheme();
   const { user, isAuthenticated, isAdmin, isModerator, logout } = useAuth();
@@ -297,6 +299,13 @@ export const AppHeaderNative: React.FC<AppHeaderNativeProps> = ({
                 <CircleHelp size={18} color="#2DD4BF" />
                 <Text style={[styles.navItemText, { color: '#2DD4BF' }]}>How to Use</Text>
               </TouchableOpacity>
+
+              {onOpenPrivacy && (
+                <TouchableOpacity style={styles.navItem} onPress={() => handleInfoPress(onOpenPrivacy)} activeOpacity={0.7}>
+                  <ShieldCheck size={18} color="#2DD4BF" />
+                  <Text style={[styles.navItemText, { color: '#2DD4BF' }]}>Data & Privacy</Text>
+                </TouchableOpacity>
+              )}
 
               {/* Refresh Feed */}
               {onRefresh && (

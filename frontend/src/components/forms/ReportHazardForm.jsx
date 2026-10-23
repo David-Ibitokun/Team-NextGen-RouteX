@@ -989,6 +989,18 @@ export function ReportHazardForm({ onSuccess, onCancel, isModal = false }) {
               </button>
             </div>
           )}
+
+          {/* Privacy Transparency Notice */}
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-900/60 text-[11px] text-slate-600 dark:text-slate-300">
+            <ShieldCheck className="w-4 h-4 text-[#087F8C] dark:text-teal-400 shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <strong className="text-[#142B3B] dark:text-slate-100">Privacy & Data Use:</strong>{" "}
+              Your coordinates and description are published to the public map for road safety. RouteX never tracks your background location. Uploaded photos are stripped of camera metadata before saving.{" "}
+              <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-[#087F8C] dark:text-teal-400 font-semibold underline ml-1">
+                Learn how we protect data
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
 

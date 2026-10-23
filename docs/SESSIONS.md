@@ -16,6 +16,20 @@
 
 ## Session log
 
+### 2026-10-23 — Data Privacy Policy, Terms of Service & Transparency Implementation
+- **Work completed:**
+  - Built dedicated, responsive Web Data Privacy & Terms page [`PrivacyPolicyPage.jsx`](file:///c:/Users/echoe/OneDrive/Documents/GitHub/Team-NextGen-RouteX/frontend/src/pages/PrivacyPolicyPage.jsx) mounted at `/privacy` and `/terms`.
+  - Added The RouteX Privacy Promise: zero background tracking, zero data selling, client-side EXIF/GPS camera metadata scrubbing, and self-service account deletion.
+  - Documented plain-English disclosures on data collection, Google Gemini AI text analysis boundaries (zero PII transmitted), external providers (OpenStreetMap, Expo), and driver safety terms (never report while driving).
+  - Integrated in-form privacy notices on [`ReportHazardForm.jsx`](file:///c:/Users/echoe/OneDrive/Documents/GitHub/Team-NextGen-RouteX/frontend/src/components/forms/ReportHazardForm.jsx) and native [`ReportScreenNative.tsx`](file:///c:/Users/echoe/OneDrive/Documents/GitHub/Team-NextGen-RouteX/mobile/src/components/ReportScreenNative.tsx).
+  - Added registration terms consent copy on [`RegisterPage.jsx`](file:///c:/Users/echoe/OneDrive/Documents/GitHub/Team-NextGen-RouteX/frontend/src/pages/RegisterPage.jsx) and [`AuthModalNative.tsx`](file:///c:/Users/echoe/OneDrive/Documents/GitHub/Team-NextGen-RouteX/mobile/src/components/AuthModalNative.tsx).
+  - Updated mobile [`InfoScreenNative.tsx`](file:///c:/Users/echoe/OneDrive/Documents/GitHub/Team-NextGen-RouteX/mobile/src/components/InfoScreenNative.tsx) with native card-based `'privacy'` screen and connected drawer navigation in [`AppHeaderNative.tsx`](file:///c:/Users/echoe/OneDrive/Documents/GitHub/Team-NextGen-RouteX/mobile/src/components/AppHeaderNative.tsx) and [`mobile/App.tsx`](file:///c:/Users/echoe/OneDrive/Documents/GitHub/Team-NextGen-RouteX/mobile/App.tsx).
+  - Updated `README.md`, `DOCUMENTATION.md`, `docs/SRS.md`, `docs/ARCHITECTURE.md`, and `docs/BACKLOG.md` satisfying FR-LAND-011 (P1), NFR-PRIV-006, and SRS Decision 9.
+- **Commands & tests run:**
+  - Verified frontend build, backend Django test suite (68/68 passing), and mobile test suite (15/15 passing).
+- **Next task:**
+  - Await user feedback.
+
 ### 2026-10-20 — Full-Stack Notification System Implementation
 - **Work completed:**
   - **Backend Notification Architecture (`apps.notifications`):**

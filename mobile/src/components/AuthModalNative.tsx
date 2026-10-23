@@ -741,6 +741,10 @@ export const AuthModalNative: React.FC<AuthModalNativeProps> = ({
                       </>
                     )}
                   </TouchableOpacity>
+
+                  <Text style={[styles.privacyConsentText, { color: theme.textMuted }]}>
+                    By creating an account, you agree to RouteX's Terms of Service and Privacy Policy. We never track background location or sell personal data.
+                  </Text>
                 </View>
               )}
             </ScrollView>
@@ -900,6 +904,12 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  privacyConsentText: {
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: 12,
   },
   demoBox: {
     borderWidth: 1,

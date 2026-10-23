@@ -303,6 +303,17 @@ export function RegisterPage() {
                 </>
               )}
             </button>
+
+            <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
+              By creating an account, you agree to RouteX's{" "}
+              <Link to="/privacy#terms" className="text-[#087F8C] dark:text-teal-400 hover:underline font-semibold">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link to="/privacy" className="text-[#087F8C] dark:text-teal-400 hover:underline font-semibold">
+                Privacy Policy
+              </Link>.
+            </p>
           </form>
 
           <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-[#667784] dark:text-slate-400">

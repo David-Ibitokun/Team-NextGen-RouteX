@@ -100,6 +100,12 @@ Unlike closed or proprietary navigation systems, RouteX operates on **civic tran
 - **Live Operational Settings:** Form to configure confirmation auto-threshold (1–20), report freshness window (1–168 hours), and max upload size (1–25 MB).
 - **System Audit Trail:** Chronological record of administrative events and system parameter changes.
 
+### 4. Data Privacy, Transparency & User Rights (`/privacy`)
+- **No Background Tracking:** Foreground GPS queried on-demand only for proximity radius checks; zero background tracking.
+- **Client-Side EXIF Scrubbing:** Camera model and GPS metadata are automatically stripped during WebP compression before upload.
+- **Zero-PII AI Boundary:** Google Gemini processes only raw hazard text; no personal account data is ever transmitted.
+- **Self-Service Erasure:** Permanent account deletion (`POST /api/v1/auth/delete-account/`) with anonymized hazard preservation (`on_delete=models.SET_NULL`).
+
 ---
 
 ## 📱 Progressive Web App (PWA) Support

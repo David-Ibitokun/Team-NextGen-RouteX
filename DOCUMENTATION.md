@@ -144,6 +144,7 @@ The client application is built with React 18, Vite 6, Tailwind CSS v4, React Ro
 - **`/dashboard`** (or `/my-reports`) — Citizen Commuter Dashboard
 - **`/moderator`** (or `/moderation`) — Moderator Trust & Safety Queue (Staff Only)
 - **`/admin-dashboard`** (or `/admin`) — Platform Administrator Portal (Admin Only)
+- **`/privacy`** (or `/terms`) — Data Privacy Policy, Terms of Service & Safety Guidelines
 
 ---
 
@@ -228,6 +229,18 @@ The client application is built with React 18, Vite 6, Tailwind CSS v4, React Ro
     - Instant live persistence with server-side validation.
   - **Tab 3 — System Audit Trail:**
     - Searchable chronological timeline of all administrative events (role promotions, parameter mutations, moderation overrides).
+
+---
+
+### Page 8: Data Privacy Policy & Terms of Service (`/privacy` & `/terms`)
+- **Component:** [`frontend/src/pages/PrivacyPolicyPage.jsx`](file:///c:/Users/echoe/OneDrive/Documents/GitHub/Team-NextGen-RouteX/frontend/src/pages/PrivacyPolicyPage.jsx)
+- **Access:** Public (No authentication required)
+- **Features & Privacy Safeguards:**
+  - **The RouteX Privacy Promise:** Zero background tracking, zero selling of personal/commute data, client-side EXIF/GPS camera metadata scrubbing via WebP canvas re-encoding, and self-service account deletion.
+  - **Data Collection Disclosures:** Full transparency covering on-demand coordinates, report text, photos, credentials, push notification tokens, and session cookies.
+  - **AI Privacy Safeguards (Google Gemini):** AI processes raw hazard text exclusively; zero usernames, emails, user IDs, or IPs are transmitted.
+  - **Self-Service Erasure & Anonymization:** Permanent account erasure at `/api/v1/auth/delete-account/`. Submitted road hazards remain on the map to protect fellow drivers, but are permanently anonymized (`reporter = NULL`).
+  - **Driver Safety Pledge & Terms:** Clear instructions never to report while actively driving (pull over safely), community report disclaimers, and official contact via `privacy@routex.org`.
 
 ---
 

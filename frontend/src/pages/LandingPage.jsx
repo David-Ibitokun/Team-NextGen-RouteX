@@ -1139,8 +1139,21 @@ export function LandingPage() {
                     <ExternalLink className="w-3 h-3 text-slate-500" />
                   </a>
                 </li>
-                <li className="text-[11px] text-slate-500">
-                  Privacy policy & terms: Scheduled for release with public deployment (see BACKLOG.md).
+                <li>
+                  <Link
+                    to="/privacy"
+                    className="hover:text-white transition-colors flex items-center gap-1"
+                  >
+                    <span>Data & Privacy Policy</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/privacy#terms"
+                    className="hover:text-white transition-colors flex items-center gap-1"
+                  >
+                    <span>Terms of Service & Safety</span>
+                  </Link>
                 </li>
               </ul>
             </div>

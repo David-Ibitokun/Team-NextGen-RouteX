@@ -28,6 +28,7 @@ import {
   CheckCircle2,
   Sliders,
   Shield,
+  ShieldCheck,
   X,
   MapPin,
   Loader2,
@@ -1222,6 +1223,14 @@ export const ReportScreenNative: React.FC<ReportScreenNativeProps> = ({
             </View>
 
             {/* Inline Action Buttons at bottom of form */}
+            {/* Privacy Transparency Notice */}
+            <View style={[styles.privacyBox, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
+              <ShieldCheck size={16} color={theme.teal} style={{ marginTop: 2 }} />
+              <Text style={[styles.privacyBoxText, { color: theme.textSecondary }]}>
+                <Text style={{ fontWeight: '700', color: theme.textPrimary }}>Privacy Note:</Text> Your location is only used to place this hazard on the public map. RouteX never tracks background location. Photos are stripped of camera metadata.
+              </Text>
+            </View>
+
             <View style={styles.inlineActionRow}>
               <TouchableOpacity
                 style={[
@@ -1622,6 +1631,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  privacyBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  privacyBoxText: {
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 16,
   },
   successContainer: {
     flex: 1,

@@ -1,10 +1,24 @@
 import React from 'react';
-import { ArrowLeft, CheckCircle2, CircleHelp, MapPin, ShieldCheck, TriangleAlert, Users } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CircleHelp,
+  MapPin,
+  ShieldCheck,
+  TriangleAlert,
+  Users,
+  EyeOff,
+  Lock,
+  Camera,
+  Cpu,
+  Trash2,
+  Mail,
+} from 'lucide-react-native';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { BRAND } from '../theme/colors';
 
-export type InfoScreenType = 'about' | 'how-to-use';
+export type InfoScreenType = 'about' | 'how-to-use' | 'privacy';
 
 interface InfoScreenNativeProps {
   type: InfoScreenType;
@@ -24,9 +38,18 @@ const steps = [
   ['Keep it current', 'Confirm a listed hazard when you can safely verify that it is still present.'],
 ] as const;
 
+const privacyHighlights = [
+  ['tracking', 'Zero background tracking', 'GPS coordinates are only requested on-demand when you tap "Near Me" or drop a pin. We never track your movement in the background.'],
+  ['selling', 'No data selling or brokers', 'We never sell, monetize, or trade your personal information, account details, or commute history to data brokers or advertisers.'],
+  ['camera', 'Camera metadata scrubbed', 'When photos are uploaded, all camera model and device GPS EXIF tags are automatically scrubbed during client-side compression.'],
+  ['ai', 'AI text safety (Zero PII)', 'Google Gemini AI evaluates only report descriptions for category and clarity. No usernames, emails, or personal identifiers are ever sent.'],
+  ['erasure', 'Self-service account deletion', 'You can permanently delete your account anytime in Dashboard Settings. Submitted hazard pins remain anonymized to keep roads safe.'],
+] as const;
+
 export const InfoScreenNative: React.FC<InfoScreenNativeProps> = ({ type, onBack }) => {
   const { theme } = useTheme();
   const isAbout = type === 'about';
+  const isPrivacy = type === 'privacy';
 
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
@@ -34,15 +57,29 @@ export const InfoScreenNative: React.FC<InfoScreenNativeProps> = ({ type, onBack
         <TouchableOpacity onPress={onBack} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back">
           <ArrowLeft size={20} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.topBarTitle}>{isAbout ? 'About Us' : 'How to Use'}</Text>
+        <Text style={styles.topBarTitle}>
+          {isAbout ? 'About Us' : isPrivacy ? 'Data & Privacy' : 'How to Use'}
+        </Text>
         <View style={styles.topBarSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.eyebrow, { color: theme.teal }]}>{isAbout ? 'ABOUT ROUTEX' : 'HOW TO USE ROUTEX'}</Text>
-        <Text style={[styles.title, { color: theme.textPrimary }]}>{isAbout ? 'A clearer view of the roads we share.' : 'From road observation to useful update.'}</Text>
+        <Text style={[styles.eyebrow, { color: theme.teal }]}>
+          {isAbout ? 'ABOUT ROUTEX' : isPrivacy ? 'DATA & PRIVACY POLICY' : 'HOW TO USE ROUTEX'}
+        </Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>
+          {isAbout
+            ? 'A clearer view of the roads we share.'
+            : isPrivacy
+            ? 'Your privacy matters on every route.'
+            : 'From road observation to useful update.'}
+        </Text>
         <Text style={[styles.intro, { color: theme.textSecondary }]}>
-          {isAbout ? 'RouteX is a community-powered road awareness platform for people who want better information before and during a journey.' : 'Check the map, understand how fresh a report is, and contribute a careful update when it is safe to do so.'}
+          {isAbout
+            ? 'RouteX is a community-powered road awareness platform for people who want better information before and during a journey.'
+            : isPrivacy
+            ? 'We believe road safety tools should protect personal privacy, not track commuters. Learn how we handle your data with transparent safeguards.'
+            : 'Check the map, understand how fresh a report is, and contribute a careful update when it is safe to do so.'}
         </Text>
 
         {isAbout ? (
@@ -63,14 +100,51 @@ export const InfoScreenNative: React.FC<InfoScreenNativeProps> = ({ type, onBack
             </View>
             <View style={[styles.notice, { backgroundColor: theme.amberLight, borderColor: theme.amber + '80' }]}>
               <TriangleAlert size={20} color={theme.amber} />
-              <Text style={[styles.noticeText, { color: theme.textPrimary }]}>RouteX reports are community-submitted, not official inspections. Check timestamps and current conditions before acting.</Text>
+              <Text style={[styles.noticeText, { color: theme.textPrimary }]}>
+                RouteX reports are community-submitted, not official inspections. Check timestamps and current conditions before acting.
+              </Text>
+            </View>
+          </>
+        ) : isPrivacy ? (
+          <>
+            <View style={styles.cardList}>
+              {privacyHighlights.map(([icon, heading, text]) => {
+                const Icon =
+                  icon === 'tracking'
+                    ? EyeOff
+                    : icon === 'selling'
+                    ? Lock
+                    : icon === 'camera'
+                    ? Camera
+                    : icon === 'ai'
+                    ? Cpu
+                    : Trash2;
+                return (
+                  <View key={heading} style={[styles.card, { backgroundColor: theme.surfaceCard, borderColor: theme.border }]}>
+                    <Icon size={21} color={theme.teal} />
+                    <View style={styles.cardCopy}>
+                      <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>{heading}</Text>
+                      <Text style={[styles.cardText, { color: theme.textSecondary }]}>{text}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={[styles.notice, { backgroundColor: theme.tealLight, borderColor: theme.teal + '60' }]}>
+              <ShieldCheck size={20} color={theme.teal} />
+              <Text style={[styles.noticeText, { color: theme.textPrimary }]}>
+                Have data concerns or privacy inquiries? Contact our team anytime at privacy@routex.org.
+              </Text>
             </View>
           </>
         ) : (
           <View style={styles.cardList}>
             {steps.map(([heading, text], index) => (
               <View key={heading} style={[styles.card, { backgroundColor: theme.surfaceCard, borderColor: theme.border }]}>
-                <View style={[styles.stepNumber, { backgroundColor: theme.teal }]}><Text style={styles.stepNumberText}>{index + 1}</Text></View>
+                <View style={[styles.stepNumber, { backgroundColor: theme.teal }]}>
+                  <Text style={styles.stepNumberText}>{index + 1}</Text>
+                </View>
                 <View style={styles.cardCopy}>
                   <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>{heading}</Text>
                   <Text style={[styles.cardText, { color: theme.textSecondary }]}>{text}</Text>
@@ -79,7 +153,9 @@ export const InfoScreenNative: React.FC<InfoScreenNativeProps> = ({ type, onBack
             ))}
             <View style={[styles.notice, { backgroundColor: theme.tealLight, borderColor: theme.teal + '60' }]}>
               <CircleHelp size={20} color={theme.teal} />
-              <Text style={[styles.noticeText, { color: theme.textPrimary }]}>Never browse or report while driving. Pull over safely first.</Text>
+              <Text style={[styles.noticeText, { color: theme.textPrimary }]}>
+                Never browse or report while driving. Pull over safely first.
+              </Text>
             </View>
           </View>
         )}

@@ -204,7 +204,7 @@ function RouteXNativeMain() {
     setActiveTab(tab);
   };
 
-  if (activeTab === 'about' || activeTab === 'how-to-use') {
+  if (activeTab === 'about' || activeTab === 'how-to-use' || activeTab === 'privacy') {
     return (
       <SafeAreaView style={[styles.root, { backgroundColor: theme.headerBg }]} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="light-content" backgroundColor={theme.headerBg} hidden={false} translucent={false} />
@@ -304,6 +304,7 @@ function RouteXNativeMain() {
         onOpenMap={() => setActiveTab('map')}
         onOpenAbout={() => setActiveTab('about')}
         onOpenHowToUse={() => setActiveTab('how-to-use')}
+        onOpenPrivacy={() => setActiveTab('privacy')}
       />
 
       {/* Active Tab View */}
