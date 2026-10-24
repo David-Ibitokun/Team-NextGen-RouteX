@@ -31,12 +31,23 @@
 - [Swagger UI & API Documentation](#-swagger-ui--api-documentation)
 - [Environment Configuration (.env)](#-environment-configuration-env)
 - [Manual Setup & Running](#-manual-setup--running)
-- [Testing & Quality Assurance (28/28 Tests Passing)](#-testing--quality-assurance)
+- [Testing & Quality Assurance (68/68 Tests Passing)](#-testing--quality-assurance)
 - [Repository Structure](#-repository-structure)
 - [Detailed Documentation](#-detailed-documentation)
 - [Trust Rules & Civic Ethics](#-trust-rules--civic-ethics)
 
 ---
+
+
+---
+
+## 🌐 Live Deployments & Demo Links
+
+- **Production Web Application (Vercel):** [https://team-next-gen-route-x.vercel.app/](https://team-next-gen-route-x.vercel.app/)
+- **Live Interactive Map:** [https://team-next-gen-route-x.vercel.app/map](https://team-next-gen-route-x.vercel.app/map)
+- **Live Backend API (Heroku):** [https://routex-api-bcfe83a1907c.herokuapp.com/api/v1/](https://routex-api-bcfe83a1907c.herokuapp.com/api/v1/)
+- **Android .APK & Video Demo (Google Drive):** [https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21](https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21)
+- **Interactive Pitch Deck:** [slides.html](slides.html)
 
 ## 🌍 Project Overview
 
@@ -126,7 +137,7 @@ On Windows, you can start the entire application suite with a single click:
 | [`run_all.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_all.bat) | **Launches both Backend and Frontend** in two separate command windows and opens their respective endpoints. |
 | [`run_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_backend.bat) | Activates virtualenv, applies migrations, seeds accounts & hazards via `seed_db.py`, and starts Django on `http://127.0.0.1:8000/`. |
 | [`run_frontend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_frontend.bat) | Checks dependencies and starts the Vite development server on `http://localhost:5173/`. |
-| [`test_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/test_backend.bat) | Runs the comprehensive 28-test Django backend test suite with verbose reporting. |
+| [`test_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/test_backend.bat) | Runs the comprehensive 68-test Django backend test suite with verbose reporting. |
 
 ---
 

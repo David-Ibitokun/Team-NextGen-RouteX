@@ -16,6 +16,26 @@
 
 ## Session log
 
+### 2026-10-24 — Cloud Deployment, Pagination Scaling, Landing Page & Android Demo Release
+- **Work completed:**
+  - Prepared project for DevFest Abeokuta 2024 Buildathon submission.
+  - Deployed frontend SPA to Vercel (https://team-next-gen-route-x.vercel.app/) with vercel.json rewrite routing.
+  - Deployed backend API to Heroku (https://routex-api-bcfe83a1907c.herokuapp.com/).
+  - Added XML sitemap (frontend/public/sitemap.xml) and search crawler policy (frontend/public/robots.txt).
+  - Implemented backend pagination controls (HazardReportPagination with page_size_query_param = 'page_size', page_size = 100, max_page_size = 500) to lift default 20-hazard pagination cap across web and mobile.
+  - Fixed cross-browser CSS styling bug (replaced .hidden utility collision with max-md:hidden / max-lg:hidden in MapPage.jsx and AppHeader.jsx).
+  - Updated landing page hero and PWA banner with Google Drive direct links for Android .apk download and product video demo (https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21).
+  - Reorganized PWA action controls into a responsive 2x2 grid and commented out /api/docs/ links from public navigation.
+  - Generated comprehensive Product Requirement Document (PRD.md) and interactive pitch deck (slides.html).
+- **Commands & tests run:**
+  - python backend/manage.py test apps: 68/68 passed in 1.65s (100% success rate).
+  - npm test --prefix mobile: 15/15 passed.
+  - npm run build --prefix frontend: Clean Vite build in 9.1s.
+- **Next task:**
+  - Final hackathon submission and live demonstration.
+
+---
+
 ### 2026-10-23 — Data Privacy Policy, Terms of Service & Transparency Implementation
 - **Work completed:**
   - Built dedicated, responsive Web Data Privacy & Terms page [`PrivacyPolicyPage.jsx`](file:///c:/Users/echoe/OneDrive/Documents/GitHub/Team-NextGen-RouteX/frontend/src/pages/PrivacyPolicyPage.jsx) mounted at `/privacy` and `/terms`.
@@ -218,7 +238,7 @@
     - Integrated native PWA install button in header ([`AppHeader.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/components/layout/AppHeader.jsx)) and landing page hero banner.
   - **Landing Page Enhancements ([`LandingPage.jsx`](file:///c:/Users/ibito/Documents/GitHub/RouteX/frontend/src/pages/LandingPage.jsx)):**
     - Added "Live Community Road Pulse" component streaming recent community hazard reports with live category badges and freshness counters.
-    - Added "Emergency Advisory vs. RouteX" clear comparison guide (when to dial 112/911 vs when to use RouteX).
+    - Added "Emergency Advisory vs. RouteX" clear comparison guide (when to dial 112 vs when to use RouteX).
     - Added "Citizen Road Safety Observer Pledge" reinforcing 4 responsible community principles.
     - Added PWA Mobile App Experience banner with one-click install button.
   - **Comprehensive Backend Integration Tests (28/28 Passing):**

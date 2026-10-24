@@ -159,7 +159,7 @@ The client application is built with React 18, Vite 6, Tailwind CSS v4, React Ro
   5. **Feature Showcase**: 4 capability cards with clean design.
   6. **Live Community Road Pulse**: Real-time stream of latest community hazard observations with freshness badges and direct map links.
   7. **Hazard Category Cards**: Interactive access to RouteX's 5 supported categories (*Flooding*, *Potholes*, *Blocked roads*, *Fallen trees*, *Other hazards*).
-  8. **Emergency vs Road Hazard Advisory**: Side-by-side civic clarity distinguishing RouteX hazard reports from urgent 112/911 emergencies.
+  8. **Emergency vs Road Hazard Advisory**: Side-by-side civic clarity distinguishing RouteX hazard reports from urgent 112 emergencies.
   9. **Citizen Road Safety Pledge**: 4 golden principles for citizen observers (no driving reports, precise coordinates, objective descriptions, thoughtful verification).
   10. **Safety and Trust Section**: Restrained statement on freshness, community confirmations, and moderation.
   11. **Native Progressive Web App (PWA) Showcase**: Highlighting zero-store install, offline shell launch, and one-click "Install RouteX App" button.

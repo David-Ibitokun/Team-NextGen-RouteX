@@ -1,11 +1,21 @@
 # RouteX — Teammate Onboarding & Run Guide
 
 > **Team:** NextGen &nbsp;|&nbsp; **Product:** RouteX &nbsp;|&nbsp; **Tagline:** *Know the Road Ahead.*  
-> **Status:** Production-Ready MVP &nbsp;|&nbsp; **Tests:** 28/28 Passing &nbsp;|&nbsp; **Tech Stack:** React 18, Vite 6, Tailwind CSS v4, Leaflet, Django 5.1, Django REST Framework, SQLite/PostgreSQL.
+> **Status:** Production-Ready MVP &nbsp;|&nbsp; **Tests:** 68/68 Backend & 15/15 Mobile Passing &nbsp;|&nbsp; **Tech Stack:** React 18, Vite 6, Tailwind CSS v4, Leaflet, Django 5.1, Django REST Framework, SQLite/PostgreSQL.
 
 Welcome to the **RouteX** repository! This document will guide you through running the application locally, understanding the project architecture, testing the three dedicated role dashboards, and working with the live map system.
 
 ---
+
+
+---
+
+## 🌐 Live Deployments & Demo Links
+
+- **Production Web Application:** [https://team-next-gen-route-x.vercel.app/](https://team-next-gen-route-x.vercel.app/)
+- **Live Hazard Map:** [https://team-next-gen-route-x.vercel.app/map](https://team-next-gen-route-x.vercel.app/map)
+- **Live Backend API (Heroku):** [https://routex-api-bcfe83a1907c.herokuapp.com/api/v1/](https://routex-api-bcfe83a1907c.herokuapp.com/api/v1/)
+- **Android APK & Video Demo:** [https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21](https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21)
 
 ## ⚡ 1. Quick-Start (Up & Running in Under 2 Minutes)
 
@@ -19,7 +29,7 @@ If you are on Windows, double-click the batch files in the root folder:
 | **[`run_mobile.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_mobile.bat)** | **Starts the Expo React Native mobile container** with automatic `.env` initialization. |
 | **[`run_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_backend.bat)** | Activates virtualenv, applies migrations, seeds accounts & hazards, and starts Django on `http://127.0.0.1:8000`. |
 | **[`run_frontend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/run_frontend.bat)** | Starts the Vite development server on `http://localhost:5173`. |
-| **[`test_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/test_backend.bat)** | Runs the full automated backend test suite (34 tests). |
+| **[`test_backend.bat`](file:///c:/Users/ibito/Documents/GitHub/RouteX/test_backend.bat)** | Runs the full automated backend test suite (68 tests). |
 
 ---
 

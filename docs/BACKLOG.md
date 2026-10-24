@@ -71,4 +71,4 @@
 ## Decisions / blockers
 - [x] Threshold defined: 3 distinct community confirmations auto-transition report from `reported` to `community_confirmed`.
 - [x] Write actions require sign-in: authenticated users submit reports, confirmations, and flags. Anonymous users can browse map, inspect details, and read documentation freely.
-- [ ] Choose cloud deployment (Render, Fly.io, or Railway) and media-storage provider (AWS S3 or Cloudinary) for public demonstration.
+- [x] Choose cloud deployment: Deployed frontend on Vercel (https://team-next-gen-route-x.vercel.app/) and backend on Heroku (https://routex-api-bcfe83a1907c.herokuapp.com/).
