@@ -23,6 +23,7 @@ export function MapPage() {
   const [selectedHazard, setSelectedHazard] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedStatus, setSelectedStatus] = useState(initialStatus);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -100,7 +101,7 @@ export function MapPage() {
     try {
       setLoading(true);
       setError(null);
-      const params = {};
+      const params = { page_size: 100 };
       if (selectedCategory) params.category = selectedCategory;
       if (selectedStatus) params.status = selectedStatus;
       if (nearMeActive && userLocation) {
@@ -112,6 +113,7 @@ export function MapPage() {
       const response = await hazardService.getHazards(params);
       const items = response.results ? response.results : response;
       setHazards(items);
+      setTotalCount(response.count !== undefined ? response.count : (Array.isArray(items) ? items.length : 0));
 
       const targetHazardId = searchParams.get("hazard_id") || searchParams.get("id");
       const targetLat = searchParams.get("lat");
@@ -197,7 +199,7 @@ export function MapPage() {
         <section
           aria-label="Hazard list and filters"
           className={`w-full md:w-[380px] lg:w-[420px] h-full flex flex-col bg-white dark:bg-[#142533] border-r border-[#DCE4E8] dark:border-slate-800 shrink-0 z-10 transition-colors ${
-            mobileTab === "map" ? "hidden md:flex" : "flex"
+            mobileTab === "map" ? "max-md:hidden flex" : "flex"
           }`}
         >
           <HazardFilters
@@ -205,7 +207,7 @@ export function MapPage() {
             onSelectCategory={handleCategoryChange}
             selectedStatus={selectedStatus}
             onSelectStatus={handleStatusChange}
-            totalCount={hazards.length}
+            totalCount={totalCount || hazards.length}
             nearMeActive={nearMeActive}
             onToggleNearMe={handleToggleNearMe}
             locating={locating}
@@ -271,7 +273,7 @@ export function MapPage() {
         <section
           aria-label="Interactive map"
           className={`flex-1 h-full relative ${
-            mobileTab === "list" ? "hidden md:block" : "block"
+            mobileTab === "list" ? "max-md:hidden block" : "block"
           }`}
         >
           <HazardMap

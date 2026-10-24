@@ -107,13 +107,13 @@ export function AppHeader({ onReportClick }) {
         {/* Desktop Navigation Links */}
         <nav
           aria-label="Main Navigation"
-          className="hidden md:flex items-center gap-5 text-xs font-medium text-slate-300"
+          className="max-md:hidden flex items-center gap-5 text-xs font-medium text-slate-300"
         >
         </nav>
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="hidden lg:flex items-center gap-1 text-xs font-medium text-slate-300">
+          <div className="max-lg:hidden flex items-center gap-1 text-xs font-medium text-slate-300">
             <a
               href="/#features"
               className="hover:text-white transition-colors py-1.5 px-2 rounded-md hover:bg-slate-800/40"
@@ -170,7 +170,7 @@ export function AppHeader({ onReportClick }) {
               title="Install RouteX App on your device"
             >
               <Download className="w-3.5 h-3.5 text-teal-400" />
-              <span className="hidden sm:inline">Install App</span>
+              <span className="max-sm:hidden inline">Install App</span>
             </button>
           )}
 
@@ -179,7 +179,7 @@ export function AppHeader({ onReportClick }) {
             href="/api/docs/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/70 hover:bg-slate-800 rounded-md border border-slate-700 transition-colors"
+            className="max-xl:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/70 hover:bg-slate-800 rounded-md border border-slate-700 transition-colors"
             title="Open interactive Swagger UI API documentation"
           >
             <FileCode className="w-3.5 h-3.5 text-teal-400" />
@@ -206,7 +206,7 @@ export function AppHeader({ onReportClick }) {
 
           {/* User Auth Controls */}
           {user ? (
-            <div className="relative hidden sm:block">
+            <div className="relative max-sm:hidden block">
               <button
                 type="button"
                 onClick={() => setUserDropdownOpen((prev) => !prev)}
@@ -216,7 +216,7 @@ export function AppHeader({ onReportClick }) {
                 <div className="w-5 h-5 rounded-full bg-[#087F8C] flex items-center justify-center text-[10px] font-bold text-white uppercase">
                   {user.display_name ? user.display_name.charAt(0) : user.username.charAt(0)}
                 </div>
-                <span className="hidden sm:inline max-w-[100px] truncate">
+                <span className="max-sm:hidden inline max-w-[100px] truncate">
                   {user.display_name || user.username}
                 </span>
                 <span
@@ -308,7 +308,7 @@ export function AppHeader({ onReportClick }) {
               )}
             </div>
           ) : (
-            <div className="hidden sm:flex items-center gap-2">
+            <div className="max-sm:hidden flex items-center gap-2">
               <Link
                 to="/login"
                 className="px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:text-white transition-colors"
@@ -324,9 +324,9 @@ export function AppHeader({ onReportClick }) {
             onClick={handleReport}
             className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold text-white bg-[#087F8C] hover:bg-[#0aa3b3] rounded-md shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-teal-400"
           >
-            <PlusCircle className="hidden sm:inline-flex w-3.5 h-3.5" />
+            <PlusCircle className="max-sm:hidden inline-flex w-3.5 h-3.5" />
             <span className="sm:hidden">Report</span>
-            <span className="hidden sm:inline">Report a Hazard</span>
+            <span className="max-sm:hidden inline">Report a Hazard</span>
           </button>
 
           {/* Mobile Menu Toggle Button */}

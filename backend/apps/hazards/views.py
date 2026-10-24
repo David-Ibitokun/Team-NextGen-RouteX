@@ -24,6 +24,12 @@ from .serializers import (
 import logging
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from apps.accounts.authentication import RouteXSessionAuthentication
+from rest_framework.pagination import PageNumberPagination
+
+class HazardReportPagination(PageNumberPagination):
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 500
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +154,7 @@ class HazardReportViewSet(viewsets.ModelViewSet):
     Supports filtering by category, status, is_demo, and geographic bounding box.
     """
     serializer_class = HazardReportSerializer
+    pagination_class = HazardReportPagination
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     authentication_classes = [CsrfExemptSessionAuthentication, BasicAuthentication]
     permission_classes = [AllowAny]
