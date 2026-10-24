@@ -333,7 +333,7 @@ export function LandingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
               <RevealOnScroll direction="up" delay={50}>
                 <div className="flex items-center gap-3.5 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <div className="w-11 h-11 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-900/60 flex items-center justify-center text-[#087F8C] dark:text-teal-400 shrink-0 shadow-xs">
+                  <div className="w-11 h-11 rounded-xl bg-teal-50 dark:bg-teal-950/60  flex items-center justify-center text-[#087F8C] dark:text-teal-400 shrink-0 shadow-xs">
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
@@ -349,7 +349,7 @@ export function LandingPage() {
 
               <RevealOnScroll direction="up" delay={150}>
                 <div className="flex items-center gap-3.5 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <div className="w-11 h-11 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-900/60 flex items-center justify-center text-[#087F8C] dark:text-teal-400 shrink-0 shadow-xs">
+                  <div className="w-11 h-11 rounded-xl bg-teal-50 dark:bg-teal-950/60  flex items-center justify-center text-[#087F8C] dark:text-teal-400 shrink-0 shadow-xs">
                     <Clock className="w-5 h-5" />
                   </div>
                   <div>
@@ -365,7 +365,7 @@ export function LandingPage() {
 
               <RevealOnScroll direction="up" delay={250}>
                 <div className="flex items-center gap-3.5 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <div className="w-11 h-11 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-900/60 flex items-center justify-center text-[#087F8C] dark:text-teal-400 shrink-0 shadow-xs">
+                  <div className="w-11 h-11 rounded-xl bg-teal-50 dark:bg-teal-950/60  flex items-center justify-center text-[#087F8C] dark:text-teal-400 shrink-0 shadow-xs">
                     <CheckCircle2 className="w-5 h-5" />
                   </div>
                   <div>
@@ -597,7 +597,7 @@ export function LandingPage() {
             <RevealOnScroll direction="up" delay={50}>
               <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-teal-50 dark:bg-teal-950/60 text-[#087F8C] dark:text-teal-400 border border-teal-200 dark:border-teal-800">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-teal-50 dark:bg-teal-950/60 text-[#087F8C] dark:text-teal-400 ">
                     <Activity className="w-3.5 h-3.5 animate-pulse" />
                     <span>Live Incident Stream</span>
                   </div>
@@ -690,7 +690,7 @@ export function LandingPage() {
                   <button
                     type="button"
                     onClick={() => navigate(`/map?category=${cat.id}`)}
-                    className="w-full h-full p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#142533] hover:border-[#087F8C] dark:hover:border-teal-500 hover:shadow-lg transition-all text-left group flex flex-col justify-between hover:-translate-y-1.5"
+                    className="w-full h-full p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#142533] hover:border-[#087F8C] dark:hover:border-slate-600 hover:shadow-lg transition-all text-left group flex flex-col justify-between hover:-translate-y-1.5"
                   >
                     <div>
                       <div className="w-11 h-11 rounded-xl bg-[#087F8C]/10 text-[#087F8C] dark:text-teal-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -736,7 +736,7 @@ export function LandingPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div className="p-4 rounded-xl bg-teal-50/60 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/40 space-y-2">
+                  <div className="p-4 rounded-xl bg-teal-50/60 dark:bg-teal-950/20  space-y-2">
                     <span className="font-bold text-[#087F8C] dark:text-teal-400 flex items-center gap-1.5">
                       <Check className="w-4 h-4 text-teal-600" /> Report on RouteX
                     </span>
@@ -767,7 +767,7 @@ export function LandingPage() {
             <RevealOnScroll direction="right" delay={200}>
               <div className="p-7 rounded-2xl bg-[#142B3B] text-white border border-slate-700 shadow-sm h-full flex flex-col justify-between space-y-6">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-teal-900/60 text-teal-300 border border-teal-700">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-teal-900/60 text-teal-300 ">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>Citizen Observer Pledge</span>
                   </div>

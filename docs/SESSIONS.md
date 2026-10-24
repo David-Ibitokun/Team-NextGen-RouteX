@@ -18,7 +18,7 @@
 
 ### 2026-10-24 — Cloud Deployment, Pagination Scaling, Landing Page & Android Demo Release
 - **Work completed:**
-  - Prepared project for DevFest Abeokuta 2024 Buildathon submission.
+  - Prepared project for DevFest Abeokuta 2026 Buildathon submission.
   - Deployed frontend SPA to Vercel (https://team-next-gen-route-x.vercel.app/) with vercel.json rewrite routing.
   - Deployed backend API to Heroku (https://routex-api-bcfe83a1907c.herokuapp.com/).
   - Added XML sitemap (frontend/public/sitemap.xml) and search crawler policy (frontend/public/robots.txt).
