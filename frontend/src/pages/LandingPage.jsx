@@ -31,6 +31,7 @@ import {
   Activity,
   Flame,
   ShieldAlert,
+  Play,
 } from "lucide-react";
 import { AppHeader } from "../components/layout/AppHeader";
 import { RouteXLogo } from "../components/common/RouteXLogo";
@@ -202,6 +203,33 @@ export function LandingPage() {
                       <PlusCircle className="w-4 h-4 text-[#087F8C] group-hover:rotate-90 transition-transform duration-200" />
                       <span>Report a hazard</span>
                     </button>
+                  </div>
+
+                  {/* Android APK & Demo Video Direct Links */}
+                  <div className="flex flex-wrap items-center gap-2.5 pt-1 mt-4">
+                    <a
+                      href="https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors shadow-xs"
+                      title="Download Android APK"
+                    >
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Download Android APK</span>
+                      <ExternalLink className="w-3 h-3 opacity-70" />
+                    </a>
+
+                    <a
+                      href="https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors shadow-xs"
+                      title="Watch Product Video Demo"
+                    >
+                      <Play className="w-3 h-3 fill-current text-indigo-600 dark:text-indigo-400" />
+                      <span>Watch Demo Video</span>
+                      <ExternalLink className="w-3 h-3 opacity-70" />
+                    </a>
                   </div>
                 </RevealOnScroll>
 
@@ -981,7 +1009,7 @@ export function LandingPage() {
             <RevealOnScroll direction="scale" delay={100}>
               <div className="p-8 md:p-12 rounded-3xl bg-[#142533]/80 border border-slate-700/80 shadow-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-8 backdrop-blur-md">
                 <div className="max-w-2xl space-y-4">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-teal-500/10 text-teal-300 border border-teal-500/30">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-teal-500/10 text-teal-300">
                     <Smartphone className="w-3.5 h-3.5" />
                     <span>Native-Like Web App</span>
                   </div>
@@ -1008,11 +1036,11 @@ export function LandingPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 shrink-0">
                   <button
                     type="button"
                     onClick={handleInstallClick}
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-bold text-sm text-white bg-[#087F8C] hover:bg-[#0aa3b3] shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-teal-400 active:scale-95"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-bold text-sm text-white bg-[#087F8C] hover:bg-[#0aa3b3] shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-teal-400 active:scale-95"
                   >
                     <Download className="w-4 h-4" />
                     <span>{installPrompt ? "Install RouteX App" : "Add to Home Screen"}</span>
@@ -1020,11 +1048,33 @@ export function LandingPage() {
 
                   <Link
                     to="/map"
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-sm text-slate-200 bg-slate-800/80 hover:bg-slate-700/80 transition-all border border-slate-700 text-center"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-semibold text-sm text-slate-200 bg-slate-800/80 hover:bg-slate-700/80 transition-all border border-slate-700 text-center"
                   >
                     <Navigation className="w-4 h-4 text-teal-400" />
                     <span>Launch in Browser</span>
                   </Link>
+
+                  <a
+                    href="https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-semibold text-sm text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/80 transition-all border border-slate-700 text-center"
+                  >
+                    <Smartphone className="w-4 h-4 text-emerald-400" />
+                    <span>Download Android .APK</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+                  </a>
+
+                  <a
+                    href="https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-semibold text-sm text-indigo-300 bg-indigo-950/60 hover:bg-indigo-900/80 transition-all border border-slate-700 text-center"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current text-indigo-400" />
+                    <span>Watch Video Demo</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                  </a>
                 </div>
               </div>
             </RevealOnScroll>
@@ -1117,7 +1167,7 @@ export function LandingPage() {
             <div className="space-y-2">
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">Resources</h4>
               <ul className="space-y-1.5">
-                <li>
+                {/* <li>
                   <a
                     href="/api/docs/"
                     target="_blank"
@@ -1127,7 +1177,7 @@ export function LandingPage() {
                     <span>Swagger API Docs</span>
                     <ExternalLink className="w-3 h-3 text-slate-500" />
                   </a>
-                </li>
+                </li> */}
                 <li>
                   <a
                     href="https://www.openstreetmap.org/copyright"
@@ -1154,6 +1204,28 @@ export function LandingPage() {
                   >
                     <span>Terms of Service & Safety</span>
                   </Link>
+                </li>
+                <li>
+                  <a
+                    href="https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-emerald-400 text-emerald-400/90 transition-colors flex items-center gap-1"
+                  >
+                    <span>Android .APK Download</span>
+                    <ExternalLink className="w-3 h-3 text-emerald-500" />
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://drive.google.com/drive/folders/1tqXxSZzJE3oaAh6K4xVrZiiW3czJdI21"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-indigo-400 text-indigo-400/90 transition-colors flex items-center gap-1"
+                  >
+                    <span>Video Demo & Walkthrough</span>
+                    <ExternalLink className="w-3 h-3 text-indigo-500" />
+                  </a>
                 </li>
               </ul>
             </div>

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /my-reports
+Disallow: /moderator
+Disallow: /moderation
+Disallow: /admin
+Disallow: /admin-dashboard
+Disallow: /reset-password
+
+Sitemap: https://team-next-gen-route-x.vercel.app/sitemap.xml

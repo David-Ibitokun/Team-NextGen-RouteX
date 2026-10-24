@@ -174,8 +174,8 @@ export function AppHeader({ onReportClick }) {
             </button>
           )}
 
-          {/* Swagger API Docs */}
-          <a
+          {/* Swagger API Docs (Hidden for public production) */}
+          {/* <a
             href="/api/docs/"
             target="_blank"
             rel="noopener noreferrer"
@@ -183,8 +183,7 @@ export function AppHeader({ onReportClick }) {
             title="Open interactive Swagger UI API documentation"
           >
             <FileCode className="w-3.5 h-3.5 text-teal-400" />
-            {/* <span>API Docs</span> */}
-          </a>
+          </a> */}
 
           {/* Theme Toggle Button */}
           <button
@@ -445,7 +444,7 @@ export function AppHeader({ onReportClick }) {
               <span>Explore Map</span>
             </Link>
 
-            <a
+            {/* <a
               href="/api/docs/"
               target="_blank"
               rel="noopener noreferrer"
@@ -453,7 +452,7 @@ export function AppHeader({ onReportClick }) {
             >
               <FileCode className="w-4 h-4 text-teal-400" />
               <span>Swagger API Docs</span>
-            </a>
+            </a> */}
           </nav>
 
           <div className="pt-3 border-t border-slate-700/80 space-y-2">
